@@ -23,6 +23,22 @@ molecfit_dir    =$(TOP_DIR)/molecfit-4.2.3
 UPDATES=continuum_parameters
 UPDATES_DIR=updates/$(UPDATES)
 
+what:
+	@echo "    all          ---> Builds for standard kit"
+	@echo "    updates      ---> Updates standrad kit source code from specifc update"
+	@echo "    rebuild      ---> Rebuilds, eg after updated changes"
+	@echo "    tarball      ---> Fetch, if need be, the molecfit kit tarball"
+	@echo "    decompress   ---> Decompres the molecfit kit tarball"
+	@echo "    cfitsio      ---> Build the cfitsio component"
+	@echo "    fftw         ---> Build the fftw component"
+	@echo "    wcslib       ---> Build the wcslib component"
+	@echo "    cpl          ---> Build the cpl component"
+	@echo "    esorex       ---> Build the esorex component"
+	@echo "    third_party  ---> Build the third_party component"
+	@echo "    telluriccorr ---> Build the telluricor component"
+	@echo "    molecfit     ---> Build the molecfit recipe component"
+	@echo "    scripts      ---> Creates shell scipts to setup PATH variable to execute binaries"
+
 all: decompress cfitsio fftw wcslib cpl esorex third_party telluriccorr molecfit scripts
 
 tarball:
@@ -129,8 +145,7 @@ rebuild:
 	cd $(telluriccorr_dir); make all install
 
 token:
-	@echo $(github)
-	@echo $(token)
+	@cat $(HOME)/github.dat
 
 
 .PHONY: updates
