@@ -1,4 +1,10 @@
+token =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
+github=https:///github.com/mikenbirchall/Molecfit
+
 molecfit-kit-ver=molecfit-kit-4.2.3
+tarball = $(molecfit-kit-ver).tar.gz
+https://ftp.eso.org/pub/dfs/pipelines/instruments/molecfit/molecfit-kit-4.2.3.tar.gz
+tarball_url=https://ftp.eso.org/pub/dfs/pipelines/instruments/molecfit
 
 TOP_DIR=molecfit-kit-4.2.3
 PWD=$(shell pwd)
@@ -15,12 +21,17 @@ telluriccorr_dir=$(TOP_DIR)/telluriccorr-4.2.0
 molecfit_dir    =$(TOP_DIR)/molecfit-4.2.3
 
 UPDATES=continuum_parameters
-UPDATES_DIR=$(UPDATES)/$(telluriccorr_dir)
-
+UPDATES_DIR=updates/$(UPDATES)
 
 all: decompress cfitsio fftw wcslib cpl esorex third_party telluriccorr molecfit scripts
 
-decompress: cleankit
+tarball:
+	make $(tarball)
+
+$(tarball):
+	curl $(tarball_url)/$(tarball) -o $(tarball)
+
+decompress: cleankit $(tarball)
 	tar -zxvf $(molecfit-kit-ver).tar.gz
 	cd $(TOP_DIR); tar -zxvf cfitsio-3.49.tar.gz
 	cd $(TOP_DIR); tar -zxvf fftw-3.3.9.tar.gz
@@ -103,11 +114,23 @@ cleankit:
 
 
 updates:
-	echo Updating from: $(UPDATES)
-	ls $@/$(UPDATES)/$(telluriccorr_dir)/src
-	cp $@/$(UPDATES)/$(telluriccorr_dir)/src/*.c $(telluriccorr_dir)/src
-	cp $@/$(UPDATES)/$(telluriccorr_dir)/src/*.h $(telluriccorr_dir)/src
+	@echo Updating $(TOP_DIR) kit from: updates/$(UPDATES)
+	@make update4target UPDATE_TARGET=$(telluriccorr_dir)/src
+
+update4target:
+# This recipe does the bulk of the file copy routine
+# for updating the kit files and relies on the same subdirectory
+# structure being used in the target and source directores.
+	@echo Updating source files in directory: $(UPDATE_TARGET)
+	@cp ${subst $(TOP_DIR),$(UPDATES_DIR),$(UPDATE_TARGET)/*} \
+	$(UPDATE_TARGET)
+
+rebuild:
 	cd $(telluriccorr_dir); make all install
+
+token:
+	@echo $(github)
+	@echo $(token)
 
 
 .PHONY: updates
