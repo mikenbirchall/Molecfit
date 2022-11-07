@@ -1,3 +1,4 @@
-molecfit-kit-4.2.3*
-setup.*sh
-install
+molecfit-kit-4.2.3.tar.gz
+./molecfit-kit-4.2.3
+./setup.*sh
+./install
