@@ -37,7 +37,7 @@ what:
 	@echo "    third_party  ---> Build the third_party component"
 	@echo "    telluriccorr ---> Build the telluricor component"
 	@echo "    molecfit     ---> Build the molecfit recipe component"
-	@echo "    scripts      ---> Creates shell scipts to setup PATH variable to execute binaries"
+	@echo "    scripts      ---> Creates shell scripts to setup PATH variable to execute binaries"
 
 all: decompress cfitsio fftw wcslib cpl esorex third_party telluriccorr molecfit scripts
 
