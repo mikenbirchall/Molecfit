@@ -177,8 +177,8 @@ update4target:
 # for updating the kit files and relies on the same subdirectory
 # structure being used in the target and source directores.
 	@echo Updating source files in directory: $(UPDATE_TARGET)
-	@cp ${subst $(TOP_DIR),$(UPDATES_DIR),$(UPDATE_TARGET)/*} \
-	$(UPDATE_TARGET)
+	@cp ${subst $(TOP_DIR),$(UPDATES_DIR),$(UPDATE_TARGET)/*.c} $(UPDATE_TARGET)
+	@cp ${subst $(TOP_DIR),$(UPDATES_DIR),$(UPDATE_TARGET)/*.h} $(UPDATE_TARGET)
 
 rebuild:
 	cd $(telluriccorr_dir); make all install
