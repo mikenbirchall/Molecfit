@@ -5,3 +5,4 @@ gsl
 setup.*sh
 install
 install_*
+*.*,v*
