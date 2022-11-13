@@ -1,10 +1,16 @@
-token =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
 github=https:///github.com/mikenbirchall/Molecfit
 
 molecfit-kit-ver=molecfit-kit-4.2.3
 tarball = $(molecfit-kit-ver).tar.gz
-https://ftp.eso.org/pub/dfs/pipelines/instruments/molecfit/molecfit-kit-4.2.3.tar.gz
 tarball_url=https://ftp.eso.org/pub/dfs/pipelines/instruments/molecfit
+
+# GSL STUFF
+gsl_url    =https://ftp.gnu.org/gnu/gsl
+gsl_ver    =gsl-2.5
+gsl_tarball=$(gsl_ver).tar.gz
+gsl_home   =gsl
+gsl_dir    =$(gsl_home)/$(gsl_ver)
+
 
 TOP_DIR=molecfit-kit-4.2.3
 PWD=$(shell pwd)
@@ -25,8 +31,10 @@ UPDATES_DIR=updates/$(UPDATES)
 
 what:
 	@echo "    all          ---> Builds for standard kit"
-	@echo "    updates      ---> Updates standrad kit source code from specifc update"
+	@echo "    updates      ---> Updates standard kit source code from specifc update, eg, make updates UPDATES=continuum_parameters"
 	@echo "    rebuild      ---> Rebuilds, eg after updated changes"
+	@echo "    rebuildwgsl  ---> Rebuilds with the wgsl mod and the gsl library. Note gsl library must be built first"
+	@echo "    allwgsl      ---> Special case of Build for standard kit with gsl library and updates from UPDATES=wgsl"
 	@echo "    tarball      ---> Fetch, if need be, the molecfit kit tarball"
 	@echo "    decompress   ---> Decompres the molecfit kit tarball"
 	@echo "    cfitsio      ---> Build the cfitsio component"
@@ -38,8 +46,14 @@ what:
 	@echo "    telluriccorr ---> Build the telluricor component"
 	@echo "    molecfit     ---> Build the molecfit recipe component"
 	@echo "    scripts      ---> Creates shell scripts to setup PATH variable to execute binaries"
+	@echo "    gslib        ---> Adds, builds and installs the GNU Scientific library to the install directory"
 
 all: decompress cfitsio fftw wcslib cpl esorex third_party telluriccorr molecfit scripts
+
+allwgsl: all
+	make gslib
+	make updates UPDATES=wgsl
+	make rebuildwgsl
 
 tarball:
 	make $(tarball)
@@ -104,6 +118,30 @@ molecfit:
 							--with-telluriccorr=$(IDR)
 	cd $(molecfit_dir); make all install
 
+
+gslib:
+	# If no gsl home directory then make one
+	if [ ! -e $(gsl_home) ] ; then mkdir $(gsl_home); fi
+
+	# If no gsl tarball in home directory then curl one
+	if [ ! -e $(gsl_home)/$(gsl_tarball) ] ; then \
+	    cd $(gsl_home); curl $(gsl_url)/$(gsl_tarball) -o $(gsl_tarball); \
+	fi
+
+	# If no untarred toplevel gsl directory then untar one
+	if [ ! -e $(gsl_dir) ] ; then \
+	    cd $(gsl_home); tar -zxvf $(gsl_tarball); \
+	fi
+
+	# If no makefile in the gsl top directory then use configure
+	# with specification of where the installation directory is.
+	if [ ! -e $(gsl_dir)/Makefile ] ; then \
+	    cd $(gsl_dir); ./configure --prefix=$(IDR); \
+	fi
+
+	# Now make all and install
+	cd $(gsl_dir); make all install
+
 scripts:
 	@echo export PATH=$(IDR):$$PATH > setup.sh
 	@echo setenv PATH $(IDR):$$PATH > setup.csh
@@ -128,6 +166,7 @@ cleaninstall:
 cleankit:
 	rm -rdf $(molecfit-kit-ver)
 
+cleanall: distclean cleankit
 
 updates:
 	@echo Updating $(TOP_DIR) kit from: updates/$(UPDATES)
@@ -143,6 +182,14 @@ update4target:
 
 rebuild:
 	cd $(telluriccorr_dir); make all install
+
+rebuildwgsl:
+	# First Copy the wgsl mods
+	make updates UPDATES=wgsl
+	#To rebuild with gsl we have to clean out the src directory then call make with specific flag variable
+	cd $(telluriccorr_dir)/src; make clean
+	cd $(telluriccorr_dir)/src; make all libtelluriccorr_la_LIBADD="\$$(LIBCPLDFS) \$$(LIBCPLUI) \$$(LIBCPLDRS) \$$(LIBCPLCORE) -lgsl -lgslcblas -lm"
+	cd $(telluriccorr_dir)/src; make install
 
 token:
 	@cat $(HOME)/github.dat
