@@ -301,8 +301,8 @@ cpl_error_code mf_convolution(
 
 /* MNB FROM HERE */
             cpl_msg_info(cpl_func,"1=================== MNB ADDITION FROM HERE ====================");
-            cpl_table_dump_structure(spec,NULL);
-            cpl_table_dump_structure(rangespec,NULL);
+            /*cpl_table_dump_structure(spec,NULL);
+            cpl_table_dump_structure(rangespec,NULL);*/
             int nmolec =     params->config->internal.molecules.n_molec;
             int nchip  =     params->config->internal.nchip;
             int nwlc   = 1 + params->config->fitting.fit_wavelenght.n;
@@ -384,6 +384,7 @@ cpl_error_code mf_convolution(
             cpl_matrix_delete(A  );
             cpl_matrix_delete(RHS);
             cpl_matrix_delete(SOL);
+            cpl_matrix_delete(W);
             cpl_msg_info(cpl_func,"1=================== MNB ADDITION END ====================");
 
 /* MNB TO HERE */
