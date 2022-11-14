@@ -305,25 +305,6 @@ cpl_error_code mf_convolution(
             }
     
             cpl_table *rangespec_cpy =cpl_table_duplicate(rangespec);
-            mf_convolution_mod_continuum(rangespec, params, fitpar, j + 1);
-
-            /* Write resulting spectrum in output CPL table */
-            cpl_table_duplicate_column(rangespec, "FLUX0", rangespec, MF_COL_IN_FLUX);
-
-            for (cpl_size i = 0; i < nsel; i++) {
-
-                cpl_size idx = cpl_array_get(selrows, i, NULL);
-
-                cpl_table_set(spec, MF_COL_MOD_LAMBDA, idx, cpl_table_get(rangespec, MF_COL_MOD_LAMBDA,  i, NULL));
-                cpl_table_set(spec, MF_COL_MOD_SCALE,  idx, cpl_table_get(rangespec, MF_COL_RANGE_SCALE, i, NULL));
-                cpl_table_set(spec, MF_COL_MOD_FLUX,   idx, cpl_table_get(rangespec, MF_COL_IN_FLUX,     i, NULL));
-
-                /* MNB*/
-                /*cpl_table_dump_structure(rangespec,NULL);*/
-
-                cpl_table_set(flux0, "FLUX0",           idx, cpl_table_get(rangespec, "FLUX0",     i, NULL));
-
-            }
 
             cpl_msg_info(cpl_func,"RANGE %lld", j);
 
@@ -331,6 +312,7 @@ cpl_error_code mf_convolution(
             cpl_matrix * A   = cpl_matrix_new(nsel,ncont);
             cpl_matrix * RHS = cpl_matrix_new(nsel,1);
             cpl_matrix * SOL = cpl_matrix_new(ncont,1);
+            cpl_matrix * SOL2= cpl_matrix_new(ncont,1);
             cpl_matrix * W   = cpl_matrix_new(nsel,nsel);
 
             /* Shift zero point of wavelength scale to center of wavelength range */
@@ -415,11 +397,12 @@ cpl_error_code mf_convolution(
 
 
 
-            SOL=cpl_matrix_solve_svd(A2,RHS2);
+            SOL2=cpl_matrix_solve_svd(A2,RHS2);
             cpl_matrix_delete(A2);
             cpl_matrix_delete(RHS2);
                 
-            cpl_matrix_dump(SOL,NULL);
+            cpl_matrix_dump(SOL2,NULL);
+            cpl_matrix_delete(SOL2);
 
 
             int nmolec =     params->config->internal.molecules.n_molec;
@@ -435,7 +418,7 @@ cpl_error_code mf_convolution(
             for  (int l1=0;l1<ncont;l1++) {
                 double sval=cpl_matrix_get(SOL,l1,0);
                 double fval=par[n0 + l1];
-                cpl_msg_info(cpl_func,"RANGE %lld i=%d sol=%f, cof=%f cp %f",j,l1,sval,fval,cpl_array_get_double(fitpar2,n0+l1,NULL));
+                cpl_msg_info(cpl_func,"RANGE %lld i=%d sol=%f, cof=%f cp %f",j,l1,sval,fval,cpl_array_get(fitpar2,n0+l1,NULL));
                     cpl_array_set_double (fitpar2,n0+l1,sval);
             }
 		
@@ -443,6 +426,37 @@ cpl_error_code mf_convolution(
             /*
             cpl_array_set_double (fitpar2,n0+5,0.0);
             */
+            if (MFIT_SVD) {
+                cpl_msg_info(cpl_func, "Udating continuum params with SVD values");
+                for  (int l1=0;l1<ncont;l1++) {
+                    double sval=cpl_matrix_get(SOL,l1,0);
+                    double oval=cpl_array_get(fitpar,n0+l1,NULL);
+                    cpl_msg_info(cpl_func,"SVD Overwirte %f with %f", oval,sval);
+                    /*cpl_array_set_double(fitpar,n0+l1,sval);*/
+                }
+            }
+            mf_convolution_mod_continuum(rangespec, params, fitpar, j + 1);
+
+            /* Write resulting spectrum in output CPL table */
+            cpl_table_duplicate_column(rangespec, "FLUX0", rangespec, MF_COL_IN_FLUX);
+
+            for (cpl_size i = 0; i < nsel; i++) {
+
+                cpl_size idx = cpl_array_get(selrows, i, NULL);
+
+                cpl_table_set(spec, MF_COL_MOD_LAMBDA, idx, cpl_table_get(rangespec, MF_COL_MOD_LAMBDA,  i, NULL));
+                cpl_table_set(spec, MF_COL_MOD_SCALE,  idx, cpl_table_get(rangespec, MF_COL_RANGE_SCALE, i, NULL));
+                cpl_table_set(spec, MF_COL_MOD_FLUX,   idx, cpl_table_get(rangespec, MF_COL_IN_FLUX,     i, NULL));
+
+                /* MNB*/
+                /*cpl_table_dump_structure(rangespec,NULL);*/
+
+                cpl_table_set(flux0, "FLUX0",           idx, cpl_table_get(rangespec, "FLUX0",     i, NULL));
+
+            }
+
+            /* Cleanup matricies*/
+            cpl_msg_info(cpl_func, "Cleaning CPL matrices");
             cpl_matrix_delete(A);
             cpl_matrix_delete(W);
             cpl_matrix_delete(RHS);

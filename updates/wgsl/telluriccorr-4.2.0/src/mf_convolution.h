@@ -76,7 +76,7 @@ CPL_BEGIN_DECLS
 
 /*  */
 MF_INTERNAL cpl_error_code mf_convolution(
-    const mf_parameters      *params,
+    mf_parameters      *params,
     const cpl_boolean        correct_spectrum,
     const cpl_boolean        last_call,
     cpl_table                **spec_out,
