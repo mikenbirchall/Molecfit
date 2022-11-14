@@ -169,7 +169,7 @@ cpl_error_code mf_convolution(
 
             /* Convert wavenumbers to wavelengths in the RANGE out spectrum of LBLRTM */
             /*cpl_table *modspec = NULL;*/
-	    /*modspec  = cpl_table_new(0);*/
+	        /*modspec  = cpl_table_new(0);*/
             if (!single_spectrum || (single_spectrum && j == 0) ) {
 
                 modspec  = cpl_table_new(0);
@@ -211,7 +211,7 @@ cpl_error_code mf_convolution(
             }
             
             if (codestat != CPL_ERROR_NONE) cpl_msg_info(cpl_func,"LBLRTM ERROR  so returning err");
-	    if (!modspec) cpl_msg_info(cpl_func,"!not modspec so returning err");
+            if (!modspec) cpl_msg_info(cpl_func,"!not modspec so returning err");
             if (!modspec) return CPL_ERROR_ILLEGAL_INPUT;
 
             /* LBLRTM errors -> output: model spectrum = observed spectrum */
@@ -223,9 +223,9 @@ cpl_error_code mf_convolution(
             /* Extract wavelength grid of observed spectrum for each range */
             cpl_table_unselect_all(spec);
 
-            cpl_size  nsel         = cpl_table_or_selected_int(spec, MF_COL_MOD_RANGE, CPL_EQUAL_TO, j + 1);
-            cpl_table *rangespec   = cpl_table_extract_selected(spec);
-            cpl_array *origselrows = cpl_table_where_selected(spec);
+            cpl_size  nsel         = cpl_table_or_selected_int (spec, MF_COL_MOD_RANGE, CPL_EQUAL_TO, j + 1);
+            cpl_table *rangespec   = cpl_table_extract_selected(spec); /*rangespec is a table derived from observed data*/
+            cpl_array *origselrows = cpl_table_where_selected  (spec);
             cpl_array *selrows     = cpl_array_cast(origselrows, CPL_TYPE_INT);
 
             cpl_array_delete(origselrows);
@@ -265,6 +265,7 @@ cpl_error_code mf_convolution(
             mf_convolution_mod_wave_grid(extmodspec, params, fitpar, chip);
 
             /* Rebin model spectrum to wavelength grid of observed spectrum */
+            /*(rangespec is now a table based on the model spectrum whereas above it is a table derived from observation)*/
             mf_convolution_rebin(rangespec, MF_COL_IN_LAMBDA, MF_COL_IN_FLUX,    extmodspec, MF_COL_IN_LAMBDA, MF_COL_IN_FLUX );
             mf_convolution_rebin(rangespec, MF_COL_IN_LAMBDA, MF_COL_MOD_LAMBDA, extmodspec, MF_COL_IN_LAMBDA, MF_COL_LAMBDA_0);
 
@@ -299,7 +300,9 @@ cpl_error_code mf_convolution(
             }
 
 /* MNB FROM HERE */
-            cpl_msg_info(cpl_func,"=================== MNB ADDITION FROM HERE ====================");
+            cpl_msg_info(cpl_func,"1=================== MNB ADDITION FROM HERE ====================");
+            cpl_table_dump_structure(spec,NULL);
+            cpl_table_dump_structure(rangespec,NULL);
             int nmolec =     params->config->internal.molecules.n_molec;
             int nchip  =     params->config->internal.nchip;
             int nwlc   = 1 + params->config->fitting.fit_wavelenght.n;
@@ -330,7 +333,8 @@ cpl_error_code mf_convolution(
                 double val; /*,wt,wt1,wt2;*/
 
                 /*val = cpl_table_get(rangespec, MF_COL_IN_FLUX,k, NULL);*/
-                val = cpl_table_get(spec, MF_COL_MOD_FLUX,idx2, NULL);
+                /*val = cpl_table_get(spec, MF_COL_MOD_FLUX,idx2, NULL);*/
+                val = cpl_table_get(spec, MF_COL_IN_FLUX,idx2, NULL);
                 cpl_matrix_set(RHS,k,0,val);
                 /*
                 val = cpl_table_get(spec, MF_COL_MOD_FLUX,idx2, NULL);
@@ -350,7 +354,8 @@ cpl_error_code mf_convolution(
             for (l=0;l<ncont;l++) cpl_matrix_set(SOL,l,0,0.0);
 
             for (k=0;k<nsel;k++)  {
-                double lam=cpl_table_get(rangespec, MF_COL_MOD_LAMBDA,  k, NULL);
+                /*double lam=cpl_table_get(rangespec, MF_COL_MOD_LAMBDA,  k, NULL);*/
+                double lam=cpl_table_get(rangespec, MF_COL_IN_LAMBDA,  k, NULL);
                 lam=lam-wmean;
                 double val=flux0V[k];
                 cpl_matrix_set(A,k,0,val);
@@ -379,7 +384,7 @@ cpl_error_code mf_convolution(
             cpl_matrix_delete(A  );
             cpl_matrix_delete(RHS);
             cpl_matrix_delete(SOL);
-            cpl_msg_info(cpl_func,"=================== MNB ADDITION END ====================");
+            cpl_msg_info(cpl_func,"1=================== MNB ADDITION END ====================");
 
 /* MNB TO HERE */
 
