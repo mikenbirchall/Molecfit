@@ -397,6 +397,10 @@ if (1==0) {
                 }
             }
             SOL=cpl_matrix_solve_svd(A,RHS);
+            cpl_matrix* CPARS   = mf_get_continuum_pars (params,fitpar,j+1);
+           /*cpl_error_code lerr = mf_set_continuum_pars (params,fitpar,j+1,CPARS);*/
+            cpl_error_code lerr = mf_set_continuum_pars (params,fitpar,j+1,SOL);
+            if (lerr) cpl_msg_info(cpl_func,"UhOh!");
 if (1==1) {
             mf_convolution_mod_continuum(rangespec, params, fitpar, j + 1);
 
@@ -415,7 +419,6 @@ if (1==1) {
                 cpl_msg_info(cpl_func,"CPL SVD, %d, %f   ",jg,cpl_matrix_get(SOL,jg,0));
             }
             double svdchi2=mf_convolution_range_chi2(A,RHS,SOL);
-            cpl_matrix* CPARS=mf_get_continuum_pars(params,fitpar,j+1);
             double stdchi2=mf_convolution_range_chi2(A,RHS,CPARS);
             cpl_msg_info(cpl_func,"CPL SVD chi2 = %f, COMPARE WITH STD chi2 = %f",svdchi2,stdchi2);
             sum_svdchi2=sum_svdchi2+svdchi2;
