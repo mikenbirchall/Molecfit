@@ -112,12 +112,12 @@ cpl_error_code mf_set_continuum_pars (
 cpl_matrix* mf_convolution_svd_analysis(
     const mf_parameters      *params,
     const cpl_array          *fitpar,
-    cpl_table                *rangespec,
-    int                      nsel,
-    cpl_table                *spec,
-    cpl_array                *selrows,
-    double                   *flux0V,
-    const int                range);
+    const cpl_table          *rangespec,
+    const int                 nsel,
+    const cpl_table          *spec,
+    const cpl_array          *selrows,
+    const double             *flux0V,
+    const int                 range);
 
 /*----------------------------------------------------------------------------*/
 /**
@@ -407,6 +407,13 @@ if (1==0) {
                 }
             }
             SOL=cpl_matrix_solve_svd(A,RHS);
+            cpl_matrix* SOL2   = mf_convolution_svd_analysis(params,fitpar,rangespec,nsel,spec,selrows,flux0V,j+1);
+            cpl_msg_info(cpl_func,"CF WITH SVD ANALYSIS:");
+            cpl_msg_info(cpl_func,"ORG=%f SVD ANALYSIS=%f",cpl_matrix_get(SOL,0,0),cpl_matrix_get(SOL2,0,0));
+            cpl_msg_info(cpl_func,"ORG=%f SVD ANALYSIS=%f",cpl_matrix_get(SOL,1,0),cpl_matrix_get(SOL2,1,0));
+            cpl_msg_info(cpl_func,"ORG=%f SVD ANALYSIS=%f",cpl_matrix_get(SOL,2,0),cpl_matrix_get(SOL2,2,0));
+            cpl_matrix_delete(SOL2);
+
             cpl_matrix* CPARS   = mf_get_continuum_pars (params,fitpar,j+1);
             cpl_error_code lerr = mf_set_continuum_pars (params,fitpar,j+1,CPARS);
             /*cpl_error_code lerr = mf_set_continuum_pars (params,fitpar,j+1,SOL);*/
@@ -1043,12 +1050,12 @@ cpl_error_code mf_set_continuum_pars (
 cpl_matrix* mf_convolution_svd_analysis(
     const mf_parameters      *params,
     const cpl_array          *fitpar,
-    cpl_table                *rangespec,
-    int                      nsel,
-    cpl_table                *spec,
-    cpl_array                *selrows,
-    double                   *flux0V,
-    const int                range) {
+    const cpl_table          *rangespec,
+    const int                 nsel,
+    const cpl_table          *spec,
+    const cpl_array          *selrows,
+    const double             *flux0V,
+    const int                 range) {
 
     cpl_msg_info(cpl_func,"X=================== MNB SVD ANALYSIS FROM HERE ====================");
 
