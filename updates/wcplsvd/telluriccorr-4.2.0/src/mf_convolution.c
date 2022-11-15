@@ -117,7 +117,10 @@ cpl_matrix* mf_convolution_svd_analysis(
     const cpl_table          *spec,
     const cpl_array          *selrows,
     const double             *flux0V,
-    const int                 range);
+    const int                 range,
+    double                   *stdchi2,
+    double                   *svdchi2);
+
 
 /*----------------------------------------------------------------------------*/
 /**
@@ -309,116 +312,29 @@ cpl_error_code mf_convolution(
             }
 
             /* Modify continuum of model spectrum by means of polynomials */
-            /* ADDED*/
+
+/* MNB FROM HERE */
+            cpl_msg_info(cpl_func,"1=================== MNB ADDITION FROM HERE ====================");
             double flux0V[nsel];
             for (cpl_size i = 0; i < nsel; i++) {
                 flux0V[i]=cpl_table_get(rangespec, MF_COL_IN_FLUX,     i, NULL);
             }
-if (1==0) {
-            mf_convolution_mod_continuum(rangespec, params, fitpar, j + 1);
 
-            /* Write resulting spectrum in output CPL table */
-            for (cpl_size i = 0; i < nsel; i++) {
-
-                cpl_size idx = cpl_array_get(selrows, i, NULL);
-
-                cpl_table_set(spec, MF_COL_MOD_LAMBDA, idx, cpl_table_get(rangespec, MF_COL_MOD_LAMBDA,  i, NULL));
-                cpl_table_set(spec, MF_COL_MOD_SCALE,  idx, cpl_table_get(rangespec, MF_COL_RANGE_SCALE, i, NULL));
-                cpl_table_set(spec, MF_COL_MOD_FLUX,   idx, cpl_table_get(rangespec, MF_COL_IN_FLUX,     i, NULL));
-            }
-}
-/* MNB FROM HERE */
-            cpl_msg_info(cpl_func,"1=================== MNB ADDITION FROM HERE ====================");
-            /*cpl_table_dump_structure(spec,NULL);
-            cpl_table_dump_structure(rangespec,NULL);*/
-            int nmolec =     params->config->internal.molecules.n_molec;
-            int nchip  =     params->config->internal.nchip;
-            int nwlc   = 1 + params->config->fitting.fit_wavelenght.n;
-            int ncont  = 1 + params->config->fitting.fit_continuum.n;
-            int n0 = nmolec + (nwlc * nchip) + (ncont * (j + 0));
-            const double *par = cpl_array_get_data_double_const(fitpar);
-
-            /* Shift zero point of wavelength scale to center of wavelength range */
-            cpl_size nlam = cpl_table_get_nrow( rangespec);
-            double limlam2[2] = { cpl_table_get( rangespec, MF_COL_IN_LAMBDA,  0,        NULL),
-            cpl_table_get( rangespec, MF_COL_IN_LAMBDA,  nlam - 1, NULL) };
-            double wmean = (limlam2[0] + limlam2[1]) / 2;
-
-
-            cpl_matrix * A   = cpl_matrix_new(nsel,ncont);
-            cpl_matrix * RHS = cpl_matrix_new(nsel,1);
-            cpl_matrix * SOL = cpl_matrix_new(ncont,1);
-            cpl_matrix * W   = cpl_matrix_new(nsel,nsel);
-
-            cpl_size k,l;
-            for( k=0;k<nsel;k++) {
-                for (l=0;l<nsel;l++) {
-                    cpl_matrix_set(W,k,l,0.0);
-                }
-            }
-            for (k=0;k<nsel;k++)  {
-                cpl_size idx2 = cpl_array_get(selrows, k, NULL);
-                double val; /*,wt,wt1,wt2;*/
-
-                /*val = cpl_table_get(rangespec, MF_COL_IN_FLUX,k, NULL);*/
-                /*val = cpl_table_get(spec, MF_COL_MOD_FLUX,idx2, NULL);*/
-                val = cpl_table_get(spec, MF_COL_IN_FLUX,idx2, NULL);
-                cpl_matrix_set(RHS,k,0,val);
-                /*
-                val = cpl_table_get(spec, MF_COL_MOD_FLUX,idx2, NULL);
-                */
-                double wt1 = cpl_table_get(spec, MF_COL_WEIGHT,idx2, NULL);
-                /* double wt2 = cpl_table_get(spec, MF_COL_MOD_WEIGHT,idx2, NULL);*/
-                /*wt=sqrt(wt1*wt2);*/
-                double wt=wt1;
-                /*
-                cpl_matrix_set(RHS,k,0,val);
-                */
-                cpl_matrix_set(W  ,k,k,wt);
-
-            }
-
-
-            for (l=0;l<ncont;l++) cpl_matrix_set(SOL,l,0,0.0);
-
-            for (k=0;k<nsel;k++)  {
-                /*double lam=cpl_table_get(rangespec, MF_COL_MOD_LAMBDA,  k, NULL);*/
-                double lam=cpl_table_get(rangespec, MF_COL_IN_LAMBDA,  k, NULL);
-                lam=lam-wmean;
-                double val=flux0V[k];
-                cpl_matrix_set(A,k,0,val);
-                for (l=1;l<ncont;l++) {
-                    val=val*lam;
-                    cpl_matrix_set(A,k,l,val);
-                }
-            }
-
-            /* Apply the weighting A=W*A and RHS=W*RHS*/
-            cpl_boolean weighting=CPL_TRUE;
-            if (weighting) {
-                for (k=0;k<nsel;k++) {
-                    double rval = cpl_matrix_get(RHS,k,0);
-                    double  wtv = cpl_matrix_get(W,  k,k);
-                    cpl_matrix_set(RHS,k,0,rval*wtv);
-                    for (l=0;l<ncont;l++) {
-                        double aval = cpl_matrix_get(A,k,l);
-                        cpl_matrix_set(A,k,l,aval*wtv);
-                    }
-                }
-            }
-            SOL=cpl_matrix_solve_svd(A,RHS);
-            cpl_matrix* SOL2   = mf_convolution_svd_analysis(params,fitpar,rangespec,nsel,spec,selrows,flux0V,j+1);
-            cpl_msg_info(cpl_func,"CF WITH SVD ANALYSIS:");
-            cpl_msg_info(cpl_func,"ORG=%f SVD ANALYSIS=%f",cpl_matrix_get(SOL,0,0),cpl_matrix_get(SOL2,0,0));
-            cpl_msg_info(cpl_func,"ORG=%f SVD ANALYSIS=%f",cpl_matrix_get(SOL,1,0),cpl_matrix_get(SOL2,1,0));
-            cpl_msg_info(cpl_func,"ORG=%f SVD ANALYSIS=%f",cpl_matrix_get(SOL,2,0),cpl_matrix_get(SOL2,2,0));
-            cpl_matrix_delete(SOL2);
+            double stdchi2,svdchi2;
+            cpl_matrix* SOL   = mf_convolution_svd_analysis(params,fitpar,rangespec,nsel,spec,selrows,flux0V,j+1,&stdchi2,&svdchi2);
+            sum_svdchi2=sum_svdchi2+svdchi2;
+            sum_stdchi2=sum_stdchi2+stdchi2;
 
             cpl_matrix* CPARS   = mf_get_continuum_pars (params,fitpar,j+1);
             cpl_error_code lerr = mf_set_continuum_pars (params,fitpar,j+1,CPARS);
             /*cpl_error_code lerr = mf_set_continuum_pars (params,fitpar,j+1,SOL);*/
             if (lerr) cpl_msg_info(cpl_func,"UhOh!");
-if (1==1) {
+            cpl_matrix_delete(SOL);
+            cpl_matrix_delete(CPARS);
+            cpl_msg_info(cpl_func,"1=================== MNB ADDITION END ====================");
+
+/* MNB TO HERE */
+
             mf_convolution_mod_continuum(rangespec, params, fitpar, j + 1);
 
             /* Write resulting spectrum in output CPL table */
@@ -430,33 +346,6 @@ if (1==1) {
                 cpl_table_set(spec, MF_COL_MOD_SCALE,  idx, cpl_table_get(rangespec, MF_COL_RANGE_SCALE, i, NULL));
                 cpl_table_set(spec, MF_COL_MOD_FLUX,   idx, cpl_table_get(rangespec, MF_COL_IN_FLUX,     i, NULL));
             }
-}
-            /* PRINTOUT COMPARISONS */
-            for (int jg = 0; jg < ncont; jg++) {
-                cpl_msg_info(cpl_func,"CPL SVD, %d, %f   ",jg,cpl_matrix_get(SOL,jg,0));
-            }
-            double svdchi2=mf_convolution_range_chi2(A,RHS,SOL);
-            double stdchi2=mf_convolution_range_chi2(A,RHS,CPARS);
-            cpl_msg_info(cpl_func,"CPL SVD chi2 = %f, COMPARE WITH STD chi2 = %f",svdchi2,stdchi2);
-            sum_svdchi2=sum_svdchi2+svdchi2;
-            sum_stdchi2=sum_stdchi2+stdchi2;
-            for  (int l1=0;l1<ncont;l1++) {
-                double sval=cpl_matrix_get(SOL,l1,0);
-                double fval=par[n0 + l1];
-                cpl_msg_info(cpl_func,"RANGE %lld i=%d sol=%f, cof=%f",j,l1,sval,fval);
-            }
-            /* END PRINTOUT COMPARISONS */
-
-
-            cpl_matrix_delete(A  );
-            cpl_matrix_delete(RHS);
-            cpl_matrix_delete(SOL);
-            cpl_matrix_delete(W);
-            cpl_matrix_delete(CPARS);
-            cpl_msg_info(cpl_func,"1=================== MNB ADDITION END ====================");
-
-/* MNB TO HERE */
-
 
             /* Cleanup */
             cpl_array_delete(selrows);
@@ -1055,7 +944,9 @@ cpl_matrix* mf_convolution_svd_analysis(
     const cpl_table          *spec,
     const cpl_array          *selrows,
     const double             *flux0V,
-    const int                 range) {
+    const int                 range,
+    double                   *stdchi2,
+    double                   *svdchi2) {
 
     cpl_msg_info(cpl_func,"X=================== MNB SVD ANALYSIS FROM HERE ====================");
 
@@ -1142,12 +1033,29 @@ cpl_matrix* mf_convolution_svd_analysis(
                 }
             }
             SOL=cpl_matrix_solve_svd(A,RHS);
-            /*cpl_matrix* CPARS   = mf_get_continuum_pars (params,fitpar,range);*/
+            cpl_matrix* CPARS   = mf_get_continuum_pars (params,fitpar,range);
             /*cpl_error_code lerr = mf_set_continuum_pars (params,fitpar,range,CPARS);*/
             /*cpl_error_code lerr = mf_set_continuum_pars (params,fitpar,j+1,SOL);*/
             /*if (lerr) cpl_msg_info(cpl_func,"UhOh!");*/
 
-    cpl_msg_info(cpl_func,"X=================== MNB SVD ANALYSIS FROM HERE ====================");
+
+
+        /* PRINTOUT COMPARISONS */
+        for (int jg = 0; jg < ncont; jg++) {
+            cpl_msg_info(cpl_func,"CPL SVD, %d, %f   ",jg,cpl_matrix_get(SOL,jg,0));
+        }
+        *svdchi2=mf_convolution_range_chi2(A,RHS,SOL);
+        *stdchi2=mf_convolution_range_chi2(A,RHS,CPARS);
+        cpl_msg_info(cpl_func,"CPL SVD chi2 = %f, COMPARE WITH STD chi2 = %f",*svdchi2,*stdchi2);
+
+        for  (int l1=0;l1<ncont;l1++) {
+            double sval=cpl_matrix_get(SOL,l1,0);
+            double fval=par[n0 + l1];
+            cpl_msg_info(cpl_func,"RANGE %d i=%d sol=%f, cof=%f",range-1,l1,sval,fval);
+        }
+        /* END PRINTOUT COMPARISONS */
+
+    cpl_msg_info(cpl_func,"X=================== MNB SVD ANALYSIS TO HERE ====================");
 
     cpl_matrix_delete(A)  ;
     cpl_matrix_delete(RHS);
