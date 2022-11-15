@@ -93,6 +93,16 @@ static cpl_error_code mf_convolution_mod_continuum(
     const cpl_array          *fitpar,
     const int                range);
 
+static double mf_convolution_range_chi2(
+    const cpl_matrix          *Amatrix,
+    const cpl_matrix          *bvector,
+    const cpl_matrix          *xvector);
+
+cpl_matrix* mf_get_continuum_pars (
+    const mf_parameters      *params,
+    const cpl_array          *fitpar,
+    const int                range);
+
 /*----------------------------------------------------------------------------*/
 /**
  *                 Functions
@@ -383,6 +393,10 @@ if (1==1) {
             for (int jg = 0; jg < ncont; jg++) {
                 cpl_msg_info(cpl_func,"CPL SVD, %d, %f   ",jg,cpl_matrix_get(SOL,jg,0));
             }
+            double svdchi2=mf_convolution_range_chi2(A,RHS,SOL);
+            cpl_matrix* CPARS=mf_get_continuum_pars(params,fitpar,j+1);
+            double stdchi2=mf_convolution_range_chi2(A,RHS,CPARS);
+            cpl_msg_info(cpl_func,"CPL SVD chi2 = %f, COMPARE WITH STD chi2 = %f",svdchi2,stdchi2);
 
             for  (int l1=0;l1<ncont;l1++) {
                 double sval=cpl_matrix_get(SOL,l1,0);
@@ -396,6 +410,7 @@ if (1==1) {
             cpl_matrix_delete(RHS);
             cpl_matrix_delete(SOL);
             cpl_matrix_delete(W);
+            cpl_matrix_delete(CPARS);
             cpl_msg_info(cpl_func,"1=================== MNB ADDITION END ====================");
 
 /* MNB TO HERE */
@@ -901,22 +916,63 @@ static cpl_error_code mf_convolution_mod_continuum(
 
 /* ---------------------------------------------------------------------------*/
 static double mf_convolution_range_chi2(
-    const cpl_array          *A,
-    const cpl_array          *b,
-    const cpl_array          *x)
+    const cpl_matrix          *Amatrix,
+    const cpl_matrix          *bvector,
+    const cpl_matrix          *xvector)
 
 
 {
     double chi2=0.0;
-    for (cpl_size i=0; i<m; i++) {
-        double y=0.0;
-        for (cpl_size j=0; j<n; j++) {
-            y=y+A[i][j]*x[j];
-        }
-        double del=y-b[i];
-        chi2=chi2+del*del;
+
+    cpl_size m=cpl_matrix_get_nrow(bvector);
+    cpl_size n=cpl_matrix_get_nrow(xvector);
+
+    /* Sanity check for compatible dimensions */
+    if (cpl_matrix_get_nrow(Amatrix)!=m || cpl_matrix_get_ncol(Amatrix)!=n) {
+        cpl_msg_info(cpl_func,"Error! mis-matching arrays");
+        return -1.0;
     }
+
+    /* Calculate y=Ax, del=y-b*/
+    cpl_matrix* delvector=cpl_matrix_product_create(Amatrix,xvector);
+    cpl_matrix_subtract(delvector,bvector);
+
+    /* Calculate chi2=(delvecor)T*delvector */
+    chi2=0.0;
+    for (cpl_size i=0; i<m; i++) {
+        double deli=cpl_matrix_get(delvector,i,0);
+        chi2=chi2+deli*deli;
+    }
+
     return chi2;
+}
+/* ---------------------------------------------------------------------------*/
+cpl_matrix* mf_get_continuum_pars (
+    const mf_parameters      *params,
+    const cpl_array          *fitpar,
+    const int                range)
+
+{
+    /* Find position of wavelength calibration parameters in fit parameter CPL array */
+    int nmolec =     params->config->internal.molecules.n_molec;
+    int nchip  =     params->config->internal.nchip;
+    int ncont  = 1 + params->config->fitting.fit_continuum.n;
+    int nwlc   = 1 + params->config->fitting.fit_wavelenght.n;
+
+    int n0 = nmolec + (nwlc * nchip) + (ncont * (range - 1));
+
+    /* Get pointer to CPL array with fit parameters */
+    const double *par = cpl_array_get_data_double_const(fitpar);
+
+    cpl_matrix* cp_vector=cpl_matrix_new(ncont,1);
+
+    for (cpl_size i=0;i<ncont;i++) {
+        cpl_size idx=n0+i;
+        cpl_matrix_set(cp_vector,i,0,par[idx]);
+    }
+
+    return cp_vector;
+
 }
 /** @endcond */
 
