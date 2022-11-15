@@ -103,6 +103,12 @@ cpl_matrix* mf_get_continuum_pars (
     const cpl_array          *fitpar,
     const int                range);
 
+cpl_error_code mf_set_continuum_pars (
+    const mf_parameters      *params,
+          cpl_array          *fitpar,
+    const int                 range,
+    const cpl_matrix         *par_vector);
+
 /*----------------------------------------------------------------------------*/
 /**
  *                 Functions
@@ -168,6 +174,8 @@ cpl_error_code mf_convolution(
     cpl_boolean single_spectrum = params->config->internal.single_spectrum;
 
     /* Adapt model spectrum for each part (chip) of the observed spectrum */
+    double sum_svdchi2=0.0;
+    double sum_stdchi2=0.0;
     int nrange = params->config->internal.n_range;
     cpl_table *modspec = NULL;
     for (cpl_size j = 0; j < nrange; j++) {
@@ -375,6 +383,19 @@ if (1==0) {
                 }
             }
 
+            /* Apply the weighting A=W*A and RHS=W*RHS*/
+            cpl_boolean weighting=CPL_TRUE;
+            if (weighting) {
+                for (k=0;k<nsel;k++) {
+                    double rval = cpl_matrix_get(RHS,k,0);
+                    double  wtv = cpl_matrix_get(W,  k,k);
+                    cpl_matrix_set(RHS,k,0,rval*wtv);
+                    for (l=0;l<ncont;l++) {
+                        double aval = cpl_matrix_get(A,k,l);
+                        cpl_matrix_set(A,k,l,aval*wtv);
+                    }
+                }
+            }
             SOL=cpl_matrix_solve_svd(A,RHS);
 if (1==1) {
             mf_convolution_mod_continuum(rangespec, params, fitpar, j + 1);
@@ -397,7 +418,8 @@ if (1==1) {
             cpl_matrix* CPARS=mf_get_continuum_pars(params,fitpar,j+1);
             double stdchi2=mf_convolution_range_chi2(A,RHS,CPARS);
             cpl_msg_info(cpl_func,"CPL SVD chi2 = %f, COMPARE WITH STD chi2 = %f",svdchi2,stdchi2);
-
+            sum_svdchi2=sum_svdchi2+svdchi2;
+            sum_stdchi2=sum_stdchi2+stdchi2;
             for  (int l1=0;l1<ncont;l1++) {
                 double sval=cpl_matrix_get(SOL,l1,0);
                 double fval=par[n0 + l1];
@@ -450,6 +472,7 @@ if (1==1) {
 
     if (last_call) cpl_msg_info(cpl_func, "(mf_convolutio) Last Iteration                     => Chi2: %12.2f",              chi2);
     else           cpl_msg_info(cpl_func, "(mf_convolutio) Loop Iteration (mpfit_calls = %4d) => Chi2: %12.2f", mpfit_calls, chi2);
+    cpl_msg_info(cpl_func, "(mf_convolutio) Chi2 Comparisons => SVD Chi2: %12.2f  STD Chi2: %12.2f",sum_svdchi2,sum_stdchi2);
 
     return CPL_ERROR_NONE;
 }
@@ -974,6 +997,36 @@ cpl_matrix* mf_get_continuum_pars (
     return cp_vector;
 
 }
+
+cpl_error_code mf_set_continuum_pars (
+    const mf_parameters      *params,
+          cpl_array          *fitpar,
+    const int                 range,
+    const cpl_matrix         *par_vector)
+{
+
+
+    /* Find position of wavelength calibration parameters in fit parameter CPL array */
+    int nmolec =     params->config->internal.molecules.n_molec;
+    int nchip  =     params->config->internal.nchip;
+    int ncont  = 1 + params->config->fitting.fit_continuum.n;
+    int nwlc   = 1 + params->config->fitting.fit_wavelenght.n;
+
+    int n0 = nmolec + (nwlc * nchip) + (ncont * (range - 1));
+
+    /* Get pointer to CPL array with fit parameters */
+    double *par = cpl_array_get_data_double(fitpar);
+
+    for (cpl_size i=0;i<ncont;i++) {
+        cpl_size idx=n0+i;
+        double val=cpl_matrix_get(par_vector,i,0);
+        par[idx]=val;
+    }
+
+
+    return CPL_ERROR_NONE;
+}
+
 /** @endcond */
 
 
