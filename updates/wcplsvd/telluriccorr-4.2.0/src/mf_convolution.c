@@ -286,7 +286,7 @@ cpl_error_code mf_convolution(
             for (cpl_size i = 0; i < nsel; i++) {
                 flux0V[i]=cpl_table_get(rangespec, MF_COL_IN_FLUX,     i, NULL);
             }
-
+if (1==0) {
             mf_convolution_mod_continuum(rangespec, params, fitpar, j + 1);
 
             /* Write resulting spectrum in output CPL table */
@@ -298,7 +298,7 @@ cpl_error_code mf_convolution(
                 cpl_table_set(spec, MF_COL_MOD_SCALE,  idx, cpl_table_get(rangespec, MF_COL_RANGE_SCALE, i, NULL));
                 cpl_table_set(spec, MF_COL_MOD_FLUX,   idx, cpl_table_get(rangespec, MF_COL_IN_FLUX,     i, NULL));
             }
-
+}
 /* MNB FROM HERE */
             cpl_msg_info(cpl_func,"1=================== MNB ADDITION FROM HERE ====================");
             /*cpl_table_dump_structure(spec,NULL);
@@ -365,9 +365,20 @@ cpl_error_code mf_convolution(
                 }
             }
 
-
             SOL=cpl_matrix_solve_svd(A,RHS);
+if (1==1) {
+            mf_convolution_mod_continuum(rangespec, params, fitpar, j + 1);
 
+            /* Write resulting spectrum in output CPL table */
+            for (cpl_size i = 0; i < nsel; i++) {
+
+                cpl_size idx = cpl_array_get(selrows, i, NULL);
+
+                cpl_table_set(spec, MF_COL_MOD_LAMBDA, idx, cpl_table_get(rangespec, MF_COL_MOD_LAMBDA,  i, NULL));
+                cpl_table_set(spec, MF_COL_MOD_SCALE,  idx, cpl_table_get(rangespec, MF_COL_RANGE_SCALE, i, NULL));
+                cpl_table_set(spec, MF_COL_MOD_FLUX,   idx, cpl_table_get(rangespec, MF_COL_IN_FLUX,     i, NULL));
+            }
+}
             /* PRINTOUT COMPARISONS */
             for (int jg = 0; jg < ncont; jg++) {
                 cpl_msg_info(cpl_func,"CPL SVD, %d, %f   ",jg,cpl_matrix_get(SOL,jg,0));
@@ -888,6 +899,25 @@ static cpl_error_code mf_convolution_mod_continuum(
     return CPL_ERROR_NONE;
 }
 
+/* ---------------------------------------------------------------------------*/
+static double mf_convolution_range_chi2(
+    const cpl_array          *A,
+    const cpl_array          *b,
+    const cpl_array          *x)
+
+
+{
+    double chi2=0.0;
+    for (cpl_size i=0; i<m; i++) {
+        double y=0.0;
+        for (cpl_size j=0; j<n; j++) {
+            y=y+A[i][j]*x[j];
+        }
+        double del=y-b[i];
+        chi2=chi2+del*del;
+    }
+    return chi2;
+}
 /** @endcond */
 
 
