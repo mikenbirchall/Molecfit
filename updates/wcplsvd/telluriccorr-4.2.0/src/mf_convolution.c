@@ -109,6 +109,16 @@ cpl_error_code mf_set_continuum_pars (
     const int                 range,
     const cpl_matrix         *par_vector);
 
+cpl_matrix* mf_convolution_svd_analysis(
+    const mf_parameters      *params,
+    const cpl_array          *fitpar,
+    cpl_table                *rangespec,
+    int                      nsel,
+    cpl_table                *spec,
+    cpl_array                *selrows,
+    double                   *flux0V,
+    const int                range);
+
 /*----------------------------------------------------------------------------*/
 /**
  *                 Functions
@@ -398,8 +408,8 @@ if (1==0) {
             }
             SOL=cpl_matrix_solve_svd(A,RHS);
             cpl_matrix* CPARS   = mf_get_continuum_pars (params,fitpar,j+1);
-           /*cpl_error_code lerr = mf_set_continuum_pars (params,fitpar,j+1,CPARS);*/
-            cpl_error_code lerr = mf_set_continuum_pars (params,fitpar,j+1,SOL);
+            cpl_error_code lerr = mf_set_continuum_pars (params,fitpar,j+1,CPARS);
+            /*cpl_error_code lerr = mf_set_continuum_pars (params,fitpar,j+1,SOL);*/
             if (lerr) cpl_msg_info(cpl_func,"UhOh!");
 if (1==1) {
             mf_convolution_mod_continuum(rangespec, params, fitpar, j + 1);
@@ -1029,6 +1039,117 @@ cpl_error_code mf_set_continuum_pars (
 
     return CPL_ERROR_NONE;
 }
+
+cpl_matrix* mf_convolution_svd_analysis(
+    const mf_parameters      *params,
+    const cpl_array          *fitpar,
+    cpl_table                *rangespec,
+    int                      nsel,
+    cpl_table                *spec,
+    cpl_array                *selrows,
+    double                   *flux0V,
+    const int                range) {
+
+    cpl_msg_info(cpl_func,"X=================== MNB SVD ANALYSIS FROM HERE ====================");
+
+    /* Find position of wavelength calibration parameters in fit parameter CPL array */
+    int nmolec =     params->config->internal.molecules.n_molec;
+    int nchip  =     params->config->internal.nchip;
+    int ncont  = 1 + params->config->fitting.fit_continuum.n;
+    int nwlc   = 1 + params->config->fitting.fit_wavelenght.n;
+    int n0 = nmolec + (nwlc * nchip) + (ncont * (range - 1));
+
+    /* Get pointer to CPL array with fit parameters */
+    const double *par = cpl_array_get_data_double_const(fitpar);
+
+    cpl_msg_info(cpl_func,"STUFF %f %d",par[n0], range);
+
+    cpl_msg_info(cpl_func,"X=================== MNB SVD ANALYSIS FROM HERE ====================");
+
+            /* Shift zero point of wavelength scale to center of wavelength range */
+            cpl_size nlam = cpl_table_get_nrow( rangespec);
+            double limlam2[2] = { cpl_table_get( rangespec, MF_COL_IN_LAMBDA,  0,        NULL),
+            cpl_table_get( rangespec, MF_COL_IN_LAMBDA,  nlam - 1, NULL) };
+            double wmean = (limlam2[0] + limlam2[1]) / 2;
+
+
+            cpl_matrix * A   = cpl_matrix_new(nsel,ncont);
+            cpl_matrix * RHS = cpl_matrix_new(nsel,1);
+            cpl_matrix * SOL = cpl_matrix_new(ncont,1);
+            cpl_matrix * W   = cpl_matrix_new(nsel,nsel);
+
+            cpl_size k,l;
+            for( k=0;k<nsel;k++) {
+                for (l=0;l<nsel;l++) {
+                    cpl_matrix_set(W,k,l,0.0);
+                }
+            }
+            for (k=0;k<nsel;k++)  {
+                cpl_size idx2 = cpl_array_get(selrows, k, NULL);
+                double val; /*,wt,wt1,wt2;*/
+
+                /*val = cpl_table_get(rangespec, MF_COL_IN_FLUX,k, NULL);*/
+                /*val = cpl_table_get(spec, MF_COL_MOD_FLUX,idx2, NULL);*/
+                val = cpl_table_get(spec, MF_COL_IN_FLUX,idx2, NULL);
+                cpl_matrix_set(RHS,k,0,val);
+                /*
+                val = cpl_table_get(spec, MF_COL_MOD_FLUX,idx2, NULL);
+                */
+                double wt1 = cpl_table_get(spec, MF_COL_WEIGHT,idx2, NULL);
+                /* double wt2 = cpl_table_get(spec, MF_COL_MOD_WEIGHT,idx2, NULL);*/
+                /*wt=sqrt(wt1*wt2);*/
+                double wt=wt1;
+                /*
+                cpl_matrix_set(RHS,k,0,val);
+                */
+                cpl_matrix_set(W  ,k,k,wt);
+
+            }
+
+
+            for (l=0;l<ncont;l++) cpl_matrix_set(SOL,l,0,0.0);
+
+            for (k=0;k<nsel;k++)  {
+                /*double lam=cpl_table_get(rangespec, MF_COL_MOD_LAMBDA,  k, NULL);*/
+                double lam=cpl_table_get(rangespec, MF_COL_IN_LAMBDA,  k, NULL);
+                lam=lam-wmean;
+                double val=flux0V[k];
+                cpl_matrix_set(A,k,0,val);
+                for (l=1;l<ncont;l++) {
+                    val=val*lam;
+                    cpl_matrix_set(A,k,l,val);
+                }
+            }
+
+            /* Apply the weighting A=W*A and RHS=W*RHS*/
+            cpl_boolean weighting=CPL_TRUE;
+            if (weighting) {
+                for (k=0;k<nsel;k++) {
+                    double rval = cpl_matrix_get(RHS,k,0);
+                    double  wtv = cpl_matrix_get(W,  k,k);
+                    cpl_matrix_set(RHS,k,0,rval*wtv);
+                    for (l=0;l<ncont;l++) {
+                        double aval = cpl_matrix_get(A,k,l);
+                        cpl_matrix_set(A,k,l,aval*wtv);
+                    }
+                }
+            }
+            SOL=cpl_matrix_solve_svd(A,RHS);
+            /*cpl_matrix* CPARS   = mf_get_continuum_pars (params,fitpar,range);*/
+            /*cpl_error_code lerr = mf_set_continuum_pars (params,fitpar,range,CPARS);*/
+            /*cpl_error_code lerr = mf_set_continuum_pars (params,fitpar,j+1,SOL);*/
+            /*if (lerr) cpl_msg_info(cpl_func,"UhOh!");*/
+
+    cpl_msg_info(cpl_func,"X=================== MNB SVD ANALYSIS FROM HERE ====================");
+
+    cpl_matrix_delete(A)  ;
+    cpl_matrix_delete(RHS);
+    cpl_matrix_delete(W)  ;
+
+
+    return SOL;
+}
+
 
 /** @endcond */
 
