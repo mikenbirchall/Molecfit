@@ -6,3 +6,10 @@ test:
 
 wgsl:
     Special workspace that requires gsl library
+
+
+wcplsvd:
+    This is the Continuum Parameter Generation via the cpl SVD opeartion
+
+qwkmf:
+    Quick Molecfit. Incorporating Alains newest ideas on using analytic derivatives for LBLRTM
