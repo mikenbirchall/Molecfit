@@ -134,7 +134,7 @@ static cpl_error_code mf_convolution_mod_continuum(
  */
 /* ---------------------------------------------------------------------------*/
 cpl_error_code mf_convolution(
-    mf_parameters      *params,
+    const mf_parameters      *params,
     const cpl_boolean        correct_spectrum,
     const cpl_boolean        last_call,
     cpl_table                **spec_out,
@@ -154,24 +154,6 @@ cpl_error_code mf_convolution(
     cpl_table_fill_column_window(spec, MF_COL_MOD_WEIGHT, 0, m, 0.);
     cpl_table_fill_column_window(spec, MF_COL_DEV,        0, m, 0.);
 
-     /* MNB*/
-     cpl_table* flux0 = cpl_table_new(m);
-     cpl_table_duplicate_column(flux0,"FLUX0",spec,MF_COL_DEV);
-     cpl_boolean MFIT_SVD = CPL_FALSE;
-     char * envStr=NULL;
-     envStr=getenv("MFIT_SVD");
-     if (envStr!=NULL) {
-         if (envStr[0]=='1') {
-             cpl_msg_info(cpl_func,"MFIT_SVD==TRUE");
-             MFIT_SVD=CPL_TRUE;
-         } else {
-            cpl_msg_info(cpl_func,"MFIT_SVD==FALSE");
-         }
-     }
-     if (MFIT_SVD)             cpl_msg_info(cpl_func,"Using SVD");
-
-
-
     /* Calculate one molecular spectrum for full/selected wavelength range? */
     cpl_boolean single_spectrum = params->config->internal.single_spectrum;
 
@@ -187,7 +169,7 @@ cpl_error_code mf_convolution(
 
             /* Convert wavenumbers to wavelengths in the RANGE out spectrum of LBLRTM */
             /*cpl_table *modspec = NULL;*/
-            /*modspec  = cpl_table_new(0);*/
+	    /*modspec  = cpl_table_new(0);*/
             if (!single_spectrum || (single_spectrum && j == 0) ) {
 
                 modspec  = cpl_table_new(0);
@@ -226,10 +208,10 @@ cpl_error_code mf_convolution(
                         cpl_msg_warning(cpl_func, "(mf_convolutio) NaN values -> weight = 0");
                     }
                 }
-            };/*(!single_spectrum || (single_spectrum && j == 0) ) */
+            }
             
             if (codestat != CPL_ERROR_NONE) cpl_msg_info(cpl_func,"LBLRTM ERROR  so returning err");
-            if (!modspec) cpl_msg_info(cpl_func,"!not modspec so returning err");
+	    if (!modspec) cpl_msg_info(cpl_func,"!not modspec so returning err");
             if (!modspec) return CPL_ERROR_ILLEGAL_INPUT;
 
             /* LBLRTM errors -> output: model spectrum = observed spectrum */
@@ -298,18 +280,9 @@ cpl_error_code mf_convolution(
             }
 
             /* Modify continuum of model spectrum by means of polynomials */
-
-            double flux0V[nsel];
-            for (cpl_size i = 0; i < nsel; i++) {
-                flux0V[i]=cpl_table_get(rangespec, MF_COL_IN_FLUX,     i, NULL);
-            }
-    
-            cpl_table *rangespec_cpy =cpl_table_duplicate(rangespec);
             mf_convolution_mod_continuum(rangespec, params, fitpar, j + 1);
 
             /* Write resulting spectrum in output CPL table */
-            cpl_table_duplicate_column(rangespec, "FLUX0", rangespec, MF_COL_IN_FLUX);
-
             for (cpl_size i = 0; i < nsel; i++) {
 
                 cpl_size idx = cpl_array_get(selrows, i, NULL);
@@ -317,172 +290,14 @@ cpl_error_code mf_convolution(
                 cpl_table_set(spec, MF_COL_MOD_LAMBDA, idx, cpl_table_get(rangespec, MF_COL_MOD_LAMBDA,  i, NULL));
                 cpl_table_set(spec, MF_COL_MOD_SCALE,  idx, cpl_table_get(rangespec, MF_COL_RANGE_SCALE, i, NULL));
                 cpl_table_set(spec, MF_COL_MOD_FLUX,   idx, cpl_table_get(rangespec, MF_COL_IN_FLUX,     i, NULL));
-
-                /* MNB*/
-                /*cpl_table_dump_structure(rangespec,NULL);*/
-
-                cpl_table_set(flux0, "FLUX0",           idx, cpl_table_get(rangespec, "FLUX0",     i, NULL));
-
             }
-
-            cpl_msg_info(cpl_func,"RANGE %lld", j);
-
-            int ncont  = 1 + params->config->fitting.fit_continuum.n;
-            cpl_matrix * A   = cpl_matrix_new(nsel,ncont);
-            cpl_matrix * RHS = cpl_matrix_new(nsel,1);
-            cpl_matrix * SOL = cpl_matrix_new(ncont,1);
-            cpl_matrix * W   = cpl_matrix_new(nsel,nsel);
-
-            /* Shift zero point of wavelength scale to center of wavelength range */
-            cpl_size nlam = cpl_table_get_nrow( rangespec);
-
-            double limlam2[2] = { cpl_table_get( rangespec, MF_COL_IN_LAMBDA,  0,        NULL),
-            cpl_table_get( rangespec, MF_COL_IN_LAMBDA,  nlam - 1, NULL) };
-
-            double wmean = (limlam2[0] + limlam2[1]) / 2;
-
-            cpl_msg_info(cpl_func,"MNB lam0=%f lam1=%f wmean=%f",limlam[0],limlam[1],wmean);
-            cpl_size k,l;
-            for( k=0;k<nsel;k++) {
-                for (l=0;l<nsel;l++) {
-                    cpl_matrix_set(W,k,l,0.0);
-                }
-            }
-            for (k=0;k<nsel;k++)  {
-                cpl_size idx2 = cpl_array_get(selrows, k, NULL);
-                double val; /*,wt,wt1,wt2;*/
-                   
-                /*val = cpl_table_get(rangespec, MF_COL_IN_FLUX,k, NULL);*/
-                val = cpl_table_get(spec, MF_COL_MOD_FLUX,idx2, NULL);
-                cpl_matrix_set(RHS,k,0,val);
-                /*
-                val = cpl_table_get(spec, MF_COL_MOD_FLUX,idx2, NULL);
-                */
-                double wt1 = cpl_table_get(spec, MF_COL_WEIGHT,idx2, NULL);
-                /* double wt2 = cpl_table_get(spec, MF_COL_MOD_WEIGHT,idx2, NULL);*/
-                /*wt=sqrt(wt1*wt2);*/
-                double wt=wt1;
-                /*
-                cpl_matrix_set(RHS,k,0,val);
-                */
-                cpl_matrix_set(W  ,k,k,wt);
-
-            }
-
-
-            for (l=0;l<ncont;l++) cpl_matrix_set(SOL,l,0,0.0);
-                
-            for (k=0;k<nsel;k++)  {
-                double lam=cpl_table_get(rangespec, MF_COL_MOD_LAMBDA,  k, NULL);
-                lam=lam-wmean;
-                double val=flux0V[k];
-                cpl_matrix_set(A,k,0,val);
-                for (l=1;l<ncont;l++) {
-                    val=val*lam;
-                    cpl_matrix_set(A,k,l,val);
-                }
-            }
-
-            cpl_matrix* A2   =cpl_matrix_product_create(W,A);
-            cpl_matrix* RHS2 =cpl_matrix_product_create(W,RHS);
-
-            SOL=cpl_matrix_solve_svd(A,RHS);
-		
-            gsl_matrix * gsl_M = gsl_matrix_alloc (nsel, ncont);
-            gsl_vector * gsl_R = gsl_vector_alloc (nsel);
-            gsl_vector * gsl_X = gsl_vector_alloc (ncont);
-
-            for (int ig = 0; ig < nsel; ig++)
-                gsl_vector_set (gsl_R, ig, cpl_matrix_get(RHS,ig,0));
- 
-            for (int ig = 0; ig < nsel; ig++)
-                for (int jg = 0; jg < ncont; jg++)
-                    gsl_matrix_set (gsl_M, ig, jg,  cpl_matrix_get(A,ig,jg));
- 
-            gsl_matrix * gsl_V = gsl_matrix_alloc (ncont,ncont);
-            gsl_vector * gsl_S = gsl_vector_alloc (ncont);
-            gsl_vector * gsl_Work = gsl_vector_alloc (ncont);
-                
-            gsl_linalg_SV_decomp(gsl_M,gsl_V,gsl_S,gsl_Work);
-            gsl_linalg_SV_solve(gsl_M,gsl_V,gsl_S,gsl_R,gsl_X);
-            /*gsl_linalg_SV_solve*/
-            for (int jg = 0; jg < ncont; jg++) {
-                cpl_msg_info(cpl_func,"GSL SVD, %d, %f %f",jg,gsl_vector_get (gsl_X,jg),gsl_vector_get(gsl_S,jg));
-                cpl_msg_info(cpl_func,"CPL SVD, %d, %f   ",jg,cpl_matrix_get(SOL,jg,0));
-            }
-            gsl_matrix_free (gsl_M);
-            gsl_vector_free (gsl_R);
-
-
-
-            SOL=cpl_matrix_solve_svd(A2,RHS2);
-            cpl_matrix_delete(A2);
-            cpl_matrix_delete(RHS2);
-                
-            cpl_matrix_dump(SOL,NULL);
-
-
-            int nmolec =     params->config->internal.molecules.n_molec;
-            int nchip  =     params->config->internal.nchip;
-            int nwlc   = 1 + params->config->fitting.fit_wavelenght.n;
-            const double *par = cpl_array_get_data_double_const(fitpar);
-            cpl_array *fitpar2 = cpl_array_duplicate(fitpar);
-
-            int n0 = nmolec + (nwlc * nchip) + (ncont * (j + 0));
-
-            /*mf_convolution_mod_continuum(rangespec, params, fitpar, j + 1);*/
-
-            for  (int l1=0;l1<ncont;l1++) {
-                double sval=cpl_matrix_get(SOL,l1,0);
-                double fval=par[n0 + l1];
-                cpl_msg_info(cpl_func,"RANGE %lld i=%d sol=%f, cof=%f cp %f",j,l1,sval,fval,cpl_array_get_double(fitpar2,n0+l1,NULL));
-                    cpl_array_set_double (fitpar2,n0+l1,sval);
-            }
-		
-            cpl_array_set_double (fitpar2,n0+4,0.0);
-            /*
-            cpl_array_set_double (fitpar2,n0+5,0.0);
-            */
-            cpl_matrix_delete(A);
-            cpl_matrix_delete(W);
-            cpl_matrix_delete(RHS);
-            cpl_matrix_delete(SOL);
-
-
-            if (last_call && 1==0) {
-                cpl_msg_info(cpl_func,"LAST CALL");
-
-                /* Modify continuum of model spectrum by means of polynomials */
-                mf_convolution_mod_continuum(rangespec_cpy, params, fitpar2, j + 1);
-
-
-                /* Write resulting spectrum in output CPL table */
-                for (cpl_size i = 0; i < nsel; i++) {
-
-                    cpl_size idx = cpl_array_get(selrows, i, NULL);
-
-                    cpl_table_set(spec, MF_COL_MOD_LAMBDA, idx, cpl_table_get(rangespec_cpy, MF_COL_MOD_LAMBDA,  i, NULL));
-                    cpl_table_set(spec, MF_COL_MOD_SCALE,  idx, cpl_table_get(rangespec_cpy, MF_COL_RANGE_SCALE, i, NULL));
-                    cpl_table_set(spec, MF_COL_MOD_FLUX,   idx, cpl_table_get(rangespec_cpy, MF_COL_IN_FLUX,     i, NULL));
-
-                    /* MNB*/
-                    /*cpl_table_dump_structure(rangespec_cpy,NULL);*/
-                }
-
-                cpl_table_delete(rangespec);
-                rangespec=rangespec_cpy;
-
-
-            } else {
-                cpl_table_delete(rangespec_cpy);
-            };/* end if lats_call && 1==0)*/
 
             /* Cleanup */
             cpl_array_delete(selrows);
             cpl_table_delete(rangespec);
         }
-    }; /*(cpl_size j = 0; j < nrange; j++*/
-    
+    }
+
     for (cpl_size i = 0; i < m; i++) {
 
         int    range = cpl_table_get(spec, MF_COL_MOD_RANGE,  i, NULL);
@@ -509,12 +324,8 @@ cpl_error_code mf_convolution(
         chi2 += dev * dev;
     }
 
-
-     /* MNB*/
-     cpl_table_delete(flux0);
-
-    if (last_call) cpl_msg_info(cpl_func, "(mf_convolutio) Last Iteration                     => Chi2: %12.6f",              chi2);
-    else           cpl_msg_info(cpl_func, "(mf_convolutio) Loop Iteration (mpfit_calls = %4d) => Chi2: %12.6f", mpfit_calls, chi2);
+    if (last_call) cpl_msg_info(cpl_func, "(mf_convolutio) Last Iteration                     => Chi2: %12.2f",              chi2);
+    else           cpl_msg_info(cpl_func, "(mf_convolutio) Loop Iteration (mpfit_calls = %4d) => Chi2: %12.2f", mpfit_calls, chi2);
 
     return CPL_ERROR_NONE;
 }
@@ -958,28 +769,12 @@ static cpl_error_code mf_convolution_mod_continuum(
     double *slam = cpl_table_get_data_double(spec, MF_COL_SLAMBDA    );
     double *scal = cpl_table_get_data_double(spec, MF_COL_RANGE_SCALE);
 
-/* MNB FROM HERE */
-
-                cpl_matrix * A   = cpl_matrix_new(nlam,ncont);
-                cpl_matrix * RHS = cpl_matrix_new(nlam,1);
-                cpl_matrix * SOL = cpl_matrix_new(ncont,1);
-/* MNB TO HERE */
 
     /* Compute continuum correction polynomials */
     for (cpl_size i = 0; i < nlam; i++) {
-                 /* MNB FROm HERE */
-                 double val = 0.0; /*cpl_table_get(spec, MF_COL_MOD_FLUX,i, NULL);*/
-                 cpl_matrix_set(RHS,i,0,val);
-		 /* MNB TO HERE */
- 
         double fac = 0.;
         for (cpl_size j = 0; j < ncont; j++) {
             fac += par[n0 + j] * pow(slam[i], j);
-	    
-                 /* MNB FROm HERE */
-		 double flx0 =cpl_table_get(spec, MF_COL_IN_FLUX,i,NULL);
-                 cpl_matrix_set(A,i,j,fac*flx0);
-		 /* MNB TO HERE */
         }
 
         if (fac <= 0) scal[i] = 1.;
@@ -989,25 +784,8 @@ static cpl_error_code mf_convolution_mod_continuum(
     /* Remove temporary table column */
     cpl_table_erase_column(spec, MF_COL_SLAMBDA);
 
-    /* Scale continuum (but save unscaled for later analysis MNB) */
+    /* Scale continuum */
     cpl_table_multiply_columns(spec, MF_COL_IN_FLUX, MF_COL_RANGE_SCALE);
-    
-/* MNB FROM HERE */
-        for (cpl_size j = 0; j < ncont; j++) {
-	    cpl_msg_info(cpl_func,"STORED Coeff %lld = %f",j,par[n0+j]);
-
-        }               
-            cpl_msg_info(cpl_func,"BEG ---- MNB HERE 2 -------->");
-	        SOL=cpl_matrix_solve_svd(A,RHS);
-            cpl_matrix_dump(SOL,NULL);
-            cpl_msg_info(cpl_func,"END ---- MNB HERE 2 -------->");
-
-		/*cpl_matrix_dump(SOL,NULL);*/
-                cpl_matrix_delete(A);
-                cpl_matrix_delete(RHS);
-                cpl_matrix_delete(SOL);
-               
-/* MNB TO HERE */
 
     return CPL_ERROR_NONE;
 }

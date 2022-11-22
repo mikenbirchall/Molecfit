@@ -47,6 +47,7 @@ what:
 	@echo "    molecfit     ---> Build the molecfit recipe component"
 	@echo "    scripts      ---> Creates shell scripts to setup PATH variable to execute binaries"
 	@echo "    gslib        ---> Adds, builds and installs the GNU Scientific library to the install directory"
+	@echo "    lmods        ---> List all update mods available to build with"
 
 all: decompress cfitsio fftw wcslib cpl esorex third_party telluriccorr molecfit scripts
 
@@ -194,5 +195,7 @@ rebuildwgsl:
 token:
 	@cat $(HOME)/github.dat
 
+lmods:
+	cd perl_scripts; perl diff_search.pl ..
 
 .PHONY: updates

@@ -1,0 +1,28 @@
+Dear Alain,
+
+Apologies for the late reply. I have been fuzzy minded for the past few days due to my latest covid booster jab. I have read your document and this is exciting as it is the best suggestion of reducing the number of calls to lblrtm so far. I believe that you are correct in that we need a flag to change the one parameter value in TAPE5. I would like to try this first and then test by having runs that call lblrtm twice (once with each TAPE5 value) and compare our transmission calculations with that of lblrtm, Next, I would like to suggest that I make a version of molecfit based on the 4.2.3 that has an extra .recipe parameter "calc_molec_derivs", which is 0 by default and uses a non zero integer to represent how we want the molecular specific derivatives calculated. I know how to pass this information to the mpfit routines and I can  make it so that a specific routine is called to calculate the derivatives (mf_calc_molec_derivs say) that will have all the necessary parameters, including the LBLRTM optical depth values. That way there is a single place for you to check and adjust the mathematical expressions. My idea includes leaving the argument syntax and the return values for the current routines that call LBLRTM as they are and define extra APIs: one that specifies which TAPE5 value method to use (eg mf_lblrtm_set_calc_method(1) ) and one to retrieve optical depth values that are to be statically stored after LBLTM is called(eg mf_lblrtm_get_optical_depth(molecule_id)). This allows us to experiment by augmenting the molecfit code rather than modifying the code in place.
+
+Let me know what you think.
+
+Regards,
+
+Mike
+
+
+NOTES TO SELF:
+use enviromental variable QWKMFA with string of characters each representing a flag. Uppercase character represent flag value as true, lower case as false.
+eg 'V' in "WfgVk" implies varbose flag is true and 'v' in "Wfgvk" implies false.
+    V => Verbose flag
+    C => Comparison mode. i.e. report both QWK_DERIVS and CMPFIT_DIFFS at each step
+    Q => Use QWK_DERIVS in calculations (instead of default CMPFIT_DIFFS)
+    q => Use default CMPFIT_DIFFS in calculations
+
+void mf_QWKAParseEnvVar(cpl_boolean VERBOSE_FLAG) {
+
+    VERBOSE_FLAG=CPL_FALSE;
+    char* FLAG_STR=NULL;
+    FLAG_STR=getenv("QWKMFA");
+    if (FLAG_STR) {t_size i=0; i<strlen(FLAG_STR); i++) {
+    if (FLAG_STR[i]=='V') VERBOSE_FLAG=CPL_TRUE;
+    if (FLAG_STR[i]=='v') VERBOSE_FLAG=CPL_FALSE;
+}
