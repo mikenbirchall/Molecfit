@@ -16,6 +16,7 @@ TOP_DIR=molecfit-kit-4.2.3
 PWD=$(shell pwd)
 IDR=$(PWD)/install
 LIB_DIR=$(IDR)/lib
+BIN_DIR=$(IDR)/bin
 
 cfitsio_dir     =$(TOP_DIR)/cfitsio-3.49
 wcslib_dir      =$(TOP_DIR)/wcslib-7.6
@@ -45,11 +46,12 @@ what:
 	@echo "    third_party  ---> Build the third_party component"
 	@echo "    telluriccorr ---> Build the telluricor component"
 	@echo "    molecfit     ---> Build the molecfit recipe component"
+	@echo "    lblrtmio     ---> Builds lblrtmio binaries"
 	@echo "    scripts      ---> Creates shell scripts to setup PATH variable to execute binaries"
 	@echo "    gslib        ---> Adds, builds and installs the GNU Scientific library to the install directory"
 	@echo "    lmods        ---> List all update mods available to build with"
 
-all: decompress cfitsio fftw wcslib cpl esorex third_party telluriccorr molecfit scripts
+all: decompress cfitsio fftw wcslib cpl esorex third_party telluriccorr molecfit scripts lblrtmio
 
 allwgsl: all
 	make gslib
@@ -192,10 +194,14 @@ rebuildwgsl:
 	cd $(telluriccorr_dir)/src; make all libtelluriccorr_la_LIBADD="\$$(LIBCPLDFS) \$$(LIBCPLUI) \$$(LIBCPLDRS) \$$(LIBCPLCORE) -lgsl -lgslcblas -lm"
 	cd $(telluriccorr_dir)/src; make install
 
+lblrtmio:
+	cd lblrtmio; make all install
+	cp lblrtmio/build/bin/* $(BIN_DIR)
+
 token:
 	@cat $(HOME)/github.dat
 
 lmods:
 	cd perl_scripts; perl diff_search.pl ..
 
-.PHONY: updates
+.PHONY: updates lblrtmio
