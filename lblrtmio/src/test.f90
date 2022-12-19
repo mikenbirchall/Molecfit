@@ -7,9 +7,12 @@ program main
     INTEGER err_stat
     print *, 'Test lblrtmio'
 
-    err_stat = LBLRTM_File_Read(ofile, "ODdeflt_062")
+    err_stat = LBLRTM_File_Read(ofile, "ODint_062")
     IF ( err_stat /= SUCCESS ) THEN
         print *, "handle error..."
     END IF
+
+    CALL LBLRTM_File_Inspect(ofile)
+
 
 end program main

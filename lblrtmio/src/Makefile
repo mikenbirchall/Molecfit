@@ -5,7 +5,7 @@ INC_DIR = $(TOP_DIR)/build/lblrtmio_v0.1.0/include
 ARV_LIB = $(LIB_DIR)/liblblrtmio.a
 CAT_FILE  = cat.txt
 EXE_FILES =$(shell cat $(CAT_FILE) | tr '\n' ' ')
-TARGETS = test ODdefltParse
+TARGETS = test ODdefltParse TestAllOD ReadTape10 ODintParse ODintMerge
 
 list :
 	@echo $(EXE_FILES)
@@ -13,6 +13,18 @@ list :
 all: clean $(TARGETS)
 
 ODdefltParse:
+	make  generic TARGET=$@
+
+ODintParse:
+	make  generic TARGET=$@
+
+ODintMerge:
+	make  generic TARGET=$@
+
+TestAllOD:
+	make  generic TARGET=$@
+
+ReadTape10:
 	make  generic TARGET=$@
 
 test:

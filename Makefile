@@ -47,6 +47,7 @@ what:
 	@echo "    telluriccorr ---> Build the telluricor component"
 	@echo "    molecfit     ---> Build the molecfit recipe component"
 	@echo "    lblrtmio     ---> Builds lblrtmio binaries"
+	@echo "    python_scripts--> Install python scripts"
 	@echo "    scripts      ---> Creates shell scripts to setup PATH variable to execute binaries"
 	@echo "    gslib        ---> Adds, builds and installs the GNU Scientific library to the install directory"
 	@echo "    lmods        ---> List all update mods available to build with"
@@ -111,6 +112,12 @@ esorex:
 
 third_party:
 	cd $(thirdparty_dir); make -f BuildThirdParty.mk all install prefix=$(IDR)
+
+third_party_dbl:
+	cd $(thirdparty_dir); make -f BuildThirdParty.mk clean all \
+				      lnfl_target=customLinuxGNUdbl
+	cp $(thirdparty_dir)/lblrtm/lblrtm*dbl $(BIN_DIR)/lblrtm_dbl
+
 
 telluriccorr:
 	cd $(telluriccorr_dir); ./configure --prefix=$(IDR) --with-cpl=$(IDR)
@@ -198,10 +205,15 @@ lblrtmio:
 	cd lblrtmio; make all install
 	cp lblrtmio/build/bin/* $(BIN_DIR)
 
+python_scripts:
+	cd python_scripts; make all
+	cp python_scripts/bin/* $(BIN_DIR)
+	cd python_scripts; make clean
+
 token:
 	@cat $(HOME)/github.dat
 
 lmods:
 	cd perl_scripts; perl diff_search.pl ..
 
-.PHONY: updates lblrtmio
+.PHONY: updates lblrtmio python_scripts

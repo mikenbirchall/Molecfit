@@ -10,13 +10,14 @@ program main
     INTEGER:: i, n
     REAL(DP), ALLOCATABLE :: frequency(:)
     REAL(DP), ALLOCATABLE :: spectrum (:)
+    REAL(DP), ALLOCATABLE :: transmission(:)
     REAL(DP) :: SUM1,SUM2
 
 
     print *, 'Test lblrtmio'
     print *, 'READ AND CALCULATE WITHODdeflt_062 '
 
-    err_stat = LBLRTM_File_Read(ofile, "ODdeflt_062")
+    err_stat = LBLRTM_File_Read(ofile, "ODdeflt_001")
     !err_stat = LBLRTM_File_Read(ofile, "TAPE3")
     !    err_stat = LBLRTM_File_Read(ofile, "TAPE12")
     IF ( err_stat /= SUCCESS ) THEN
@@ -45,12 +46,17 @@ program main
     ! Now do some calculations:
     n=ofile%Layer(1)%n_Points
     allocate (spectrum(n))
+    allocate (transmission(n))
     sum1=0.0d0
     sum2=0.0d0
     do i=1,ofile%Layer(1)%n_Points
         spectrum(i)=oFile%Layer(1)%Spectrum(i,1)
         sum1=sum1+frequency(i)
         sum2=sum2+spectrum(i)
+        transmission(i)=exp(-1.0*spectrum(i))
+    end do
+    do i=n-9,n
+        print *, i,  frequency(i), ' -> T -> ' , transmission(i)
     end do
 
     print * , 'TOTAL ', sum1,sum2

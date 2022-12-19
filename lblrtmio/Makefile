@@ -20,6 +20,10 @@ lblrtmio: $(build_dir) $(lblrtmio_dir)
 	                                --enable-single
 	make all install -C $(lblrtmio_dir)
 
+lblrtmio_dbl: $(build_dir) $(lblrtmio_dir)
+	cd $(lblrtmio_dir); ./configure --prefix=$(build_dir)
+	make all install -C $(lblrtmio_dir)
+
 $(build_dir):
 	if [ ! -e $(build_dir) ] ; then  mkdir $(build_dir) ; fi
 	if [ ! -e $(bin_dir)   ] ; then  mkdir $(bin_dir)    ; fi

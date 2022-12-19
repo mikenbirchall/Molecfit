@@ -1,0 +1,33 @@
+1$ created by lnfl                                       V:                     I 22/12/09  11:12:13
+0                    VMIN = 2989.909000 CM-1,      VMAX = 3013.419000 CM-1
+0 ** NOTE IFLG SET - LNOUT *****
+
+                                           H2O  = 0
+                                           CO2  = 0
+                                            O3  = 1
+                                           N2O  = 0
+                                            CO  = 0
+                                           CH4  = 0
+                                            O2  = 0
+ 
+0         TAPE NO. = 3
+          LOWEST LINE =  2989.912109 CM-1,  HIGHEST LINE =  3013.407959 CM-1,  TOTAL NUMBER OF LINES =   2189
+0
+                        COUPLED    NLTE   NEGATIVE   RESET    SUM LBLRTM      STRENGTH
+       MOL      LINES    LINES    LINES      EPP      EPP      STRENGTHS      REJECTION
+
+       H2O  =       0        0        0        0        0     0.0000E+00      0.000E+00
+       CO2  =       0        0        0        0        0     0.0000E+00      0.000E+00
+        O3  =    2189        0        0        0        0     6.4947E-24      0.000E+00
+       N2O  =       0        0        0        0        0     0.0000E+00      0.000E+00
+        CO  =       0        0        0        0        0     0.0000E+00      0.000E+00
+       CH4  =       0        0        0        0        0     0.0000E+00      0.000E+00
+        O2  =       0        0        0        0        0     0.0000E+00      0.000E+00
+0                    NUMBER OF BLOCKS =   9
+0           TOTAL TIME =    13.779 TIME IN =     0.001 TIME OUT =    13.780
+
+
+0 Modules and versions used in this calculation:
+
+                lnfl.f:  $Revision$                    util_gfortran.f:  $Revision: 28034 $
+

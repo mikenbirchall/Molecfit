@@ -1,4 +1,4 @@
-filename='TAPE12'
+filename='TAPE5'
 
 fid=open(filename,'rb')
 
