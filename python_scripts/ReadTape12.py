@@ -4,7 +4,7 @@ fid=open(filename,'rb')
 
 cnt=0
 for record in fid:
-    if (cnt==0): print('RECODRD=,',record)
+   # if (cnt==0): print('RECODRD=,',record)
     cnt=cnt+1
 print('N lines=',cnt)
 
