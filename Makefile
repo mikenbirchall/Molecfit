@@ -153,8 +153,8 @@ gslib:
 	cd $(gsl_dir); make all install
 
 scripts:
-	@echo export PATH=$(IDR):$$PATH > setup.sh
-	@echo setenv PATH $(IDR):$$PATH > setup.csh
+	@echo export PATH=$(IDR)/bin:$$PATH > setup.sh
+	@echo setenv PATH $(IDR)/bin:$$PATH > setup.csh
 	@echo Shell scripts to include built bin to PATH var created.
 	@echo From bash shell type:   "source setup.sh"
 	@echo From c/tcsh shell type: "source setup.csh"
