@@ -13,3 +13,6 @@ wcplsvd:
 
 qwkmf:
     Quick Molecfit. Incorporating Alains newest ideas on using analytic derivatives for LBLRTM
+
+keeptmp:
+    A version that does not remove tmp files created for the lblrt and lnfl invocations.
