@@ -8,14 +8,18 @@ import tarfile
 # WIP RELATED HACKS
 LNFL_BIN="lnfl"
 TOPL_DIR=os.getcwd()
+ALL_FLAG=True
+
+
 # GLOBAL VARIABLES:
-TAPE5_FILENAME='TAPE5'
-TAPE1_FILENAME='TAPE1'
-TAPE3_FILENAME='TAPE3'
-TAPE6_FILENAME='TAPE6'
-TAPE7_FILENAME='TAPE7'
-TAPE10_FILENAME='TAPE10'
-TAPE3_DIRNAME="TAPE3_DIR"
+TAPE5_FILENAME  = 'TAPE5'
+TAPE1_FILENAME  = 'TAPE1'
+TAPE3_FILENAME  = 'TAPE3'
+TAPE6_FILENAME  = 'TAPE6'
+TAPE7_FILENAME  = 'TAPE7'
+TAPE10_FILENAME = 'TAPE10'
+TAPE3_DIRNAME   = "TAPE3_DIR"
+ALLMOLS_DIRNAME = "ALL"
 N_MOL_TYPES=47
 MOL_STR="\
 ( 1)  H2O  ( 2)  CO2  ( 3)    O3 ( 4)   N2O ( 5)    CO ( 6)   CH4 ( 7)    O2 \
@@ -38,8 +42,12 @@ def ParseMOLSTR(MOL_STR):
         idx =MOL_STR.find(substr)
         mols=MOL_STR[idx+4:idx+11].strip()
         ret_lst.append(mols)
+    # Add an all moles dirname to the list
+    ret_lst.append(ALLMOLS_DIRNAME)
     return ret_lst
 MOLECULES_FULL_LST=ParseMOLSTR(MOL_STR)
+# Store the ALLMLS idx (which will be at the end of the list)
+ALLMOLS_IDX=len(MOLECULES_FULL_LST)-1
 
 # -----------------------------------------------------------------------------------
 # -----------------------------------------------------------------------------------
@@ -134,6 +142,23 @@ for idx in sel_lst:
     newfile=os.path.join(mol_name,TAPE1_FILENAME)
     srcfile=os.path.join("../",TAPE1_FILENAME)
     os.symlink(srcfile,newfile)
+
+# If ALL flag is true then create a "Molecule" subdirectoy
+# for all mols, which will conatin a Softlink TAPE5 to the
+# full TAPE5
+if ALL_FLAG:
+    # Make directory ALL
+    os.mkdir(ALLMOLS_DIRNAME)
+    # Softlink TAPE5
+    newfile=os.path.join(ALLMOLS_DIRNAME,TAPE5_FILENAME)
+    srcfile=os.path.join("../",TAPE5_FILENAME)
+    os.symlink(srcfile,newfile)
+    #Softlink TAPE2
+    newfile=os.path.join(ALLMOLS_DIRNAME,TAPE1_FILENAME)
+    srcfile=os.path.join("../",TAPE1_FILENAME)
+    os.symlink(srcfile,newfile)
+    # Now add the ALL molecule idx to the selection list
+    sel_lst.append(ALLMOLS_IDX)
 
 # Now execute lnfl in each molecule directory
 for idx in sel_lst:

@@ -45,10 +45,22 @@ print("Molecules of Interest = ", mol_lst);
 # Iterate through each molecule
 od_file_lst=[]
 for mol in mol_lst:
-    wdir=os.path.join(folder,mol)
+
+    # Make clean directory for this molecule
+    if (os.path.exists(mol)):
+            print("exists")
+            shutil.rmtree(mol)
+    os.mkdir(mol)
+
+    # Soft link the associated TAPE3 file into this directory
+    source=os.path.join(folder,mol,TAPE3_FILENAME)
+    target=os.path.join(mol,TAPE3_FILENAME)
+    os.symlink(source,target)
+    wdir=os.path.join("./",mol)
     target=os.path.join(wdir,TAPE5_FILENAME)
     print("Work in path ", wdir)
-    #  Create a softlink to the LBLRTM TAPE5
+
+    #  Create a softlink to the LBLRTM TAPE5 into this directory
     if (os.path.exists(target)):
             os.unlink(target)
     os.symlink(tape5,target)
@@ -61,11 +73,11 @@ for mol in mol_lst:
     # Invoke the lblrtio merge application
     cmd_str="cd " + wdir + " ; " + LBLRTM_MRG_BIN
     print(cmd_str)
-    os.system(cmd_str)
+    #os.system(cmd_str)
 
     od_file=os.path.join(wdir,OD_MERGE_FILE)
     od_file_lst.append(od_file)
-
+sys.exit()
 cnt=0
 for od_file in od_file_lst:
     print ("Merging ", od_file)
