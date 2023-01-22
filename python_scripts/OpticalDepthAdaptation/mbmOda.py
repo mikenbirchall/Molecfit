@@ -1,60 +1,3 @@
-#!/usr/bin/env python3
-
-import os
-import shutil
-import sys
-import tarfile
-import numpy as np
-
-# GLOBAL VARIABLES:
-LBLRTM_BIN      = 'lblrtm'
-MOLPRFSDIR      = 'INDIVIDUAL_MOLECULE_PROFS'
-TAPE5_FILENAME  = 'TAPE5'
-TAPE1_FILENAME  = 'TAPE1'
-TAPE3_FILENAME  = 'TAPE3'
-TAPE6_FILENAME  = 'TAPE6'
-TAPE7_FILENAME  = 'TAPE7'
-TAPE10_FILENAME = 'TAPE10'
-TAPE28_FILENAME = 'TAPE28'
-TAPE3_DIRNAME   = "TAPE3_DIR"
-ALLMOLS_DIRNAME = "ALL"
-N_MOL_TYPES=47
-MOL_STR="\
-( 1)  H2O  ( 2)  CO2  ( 3)    O3 ( 4)   N2O ( 5)    CO ( 6)   CH4 ( 7)    O2 \
-( 8)   NO  ( 9)  SO2  (10)   NO2 (11)   NH3 (12)  HNO3 (13)    OH (14)    HF \
-(15)  HCL  (16)  HBR  (17)    HI (18)   CLO (19)   OCS (20)  H2CO (21)  HOCL \
-(22)   N2  (23)  HCN  (24) CH3CL (25)  H2O2 (26)  C2H2 (27)  C2H6 (28)   PH3 \
-(29) COF2  (30)  SF6  (31)   H2S (32) HCOOH (33)   HO2 (34)     O (35)CLONO2 \
-(36)  NO+  (37) HOBR  (38)  C2H4 (39) C3HOH (40) CH3Br (41) CH3CN (42)   CF4 \
-(43) C4H2  (44) HC3N  (45)    H2 (46)    CS (47)   SO3                       \
-"
-# Parse the MOLECULAR set string into a workable list
-def ParseMOLSTR(MOL_STR):
-
-    ret_lst=[]
-    for i in range(1,N_MOL_TYPES+1):
-        if (i<10):
-            substr="( "+str(i)+")"
-        else:
-            substr="("+str(i)+")"
-        idx =MOL_STR.find(substr)
-        mols=MOL_STR[idx+4:idx+11].strip()
-        ret_lst.append(mols)
-    # Add an all moles dirname to the list
-    ret_lst.append(ALLMOLS_DIRNAME)
-    return ret_lst
-MOLECULES_FULL_LST=ParseMOLSTR(MOL_STR)
-# Store the ALLMLS idx (which will be at the end of the list)
-ALLMOLS_IDX=len(MOLECULES_FULL_LST)-1
-
-def Mol2Idx(mol_str):
-    idx=-1
-    n_molecules=len(MOLECULES_FULL_LST)
-    for i in range(n_molecules):
-        if(MOLECULES_FULL_LST[i]==mol_str):
-            idx=i+1
-            return idx
-    return idx
 # ==================================================================================
 #                     CAST TAPE5 UTILITY ROUTINES BEGIN
 # ==================================================================================
@@ -83,7 +26,7 @@ def setallzeros(str0):
         nstr=setzero(nstr,idx)
     return nstr
 
-def READ_TAPE5(dirname):
+def readTAPE5(dirname):
 
     verbose=False
     filename=os.path.join(dirname,'TAPE5')
@@ -171,7 +114,7 @@ def test():
     strx=setzeros(str,3)
     print(strx)
 
-    header, prerecords, records, footer = READ_TAPE5("./")
+    header, prerecords, records, footer = readTAPE5("./")
     print ("HEADER")
     for line in header:
         print (line)
@@ -214,7 +157,7 @@ def ModifyTAPE5Header4dv(header,dv):
 def cast_TAPE5 (TAPE5source,wdir,molecule_list,dv):
 
     # Parse the TAPE source file into sections
-    header, prerecords, records, footer = READ_TAPE5(os.path.dirname(TAPE5source))
+    header, prerecords, records, footer = readTAPE5(os.path.dirname(TAPE5source))
 
     # Modify the header to have the specified dv value
     mod_header=ModifyTAPE5Header4dv(header,dv)
@@ -245,58 +188,6 @@ def cast_TAPE5 (TAPE5source,wdir,molecule_list,dv):
 # ==================================================================================
 #                     CAST TAPE5 UTILITY ROUTINES END
 # ==================================================================================
-# ==================================================================================
-
-def ReadTAPE28(dirname):
-
-    # Read all lines in asci file TAPE28
-    file='TAPE28'
-    filename=os.path.join(dirname,file)
-
-    # Check if present if not assume it has been moved to ../TAPE28_1
-    if (not os.path.exists(filename)):
-        target=os.path.join(dirname,'../TAPE28_1')
-        os.symlink(target,filename)
-
-    fid=open(filename,'r')
-    lines=fid.readlines()
-    fid.close()
-
-    # Iterate through all lines and extract Wavenumbers and Transmission values
-    cnt=0;            # No of lines with values extracted
-    extracting=False; # Boolean if in extracting mode
-    wave_lst=[];      # The wavenumber extracted values list
-    trans_lst=[]       # The transmission extracted values list
-    for line in lines:
-
-        # Skip empty lines
-        if (len(line.strip())==0):
-            continue
-
-        # If this line contains "WAVENUMBER" and "TRANSMISSION" then start extracting
-        # on the next iteration
-        if (line.find("WAVENUMBER")!=-1 and line.find("TRANSMISSION")!=-1):
-                extracting=True
-                continue
-
-        # Skip if we are not extracting
-        if (not extracting):
-            continue
-
-        # Real Values are to be extracted from this line
-        cnt+=1
-        lst=line.split()
-        wave_lst.append (lst[0])
-        trans_lst.append(lst[1])
-
-    # Convert to numpy vectors
-    waveV=np.zeros(cnt)
-    transV=np.zeros(cnt)
-    for i in range (cnt):
-        waveV [i] = wave_lst[i]
-        transV[i] =trans_lst[i]
-
-    return waveV, transV, cnt
 
 def GetdvFromTAPE28(dirname):
 
@@ -306,28 +197,6 @@ def GetdvFromTAPE28(dirname):
         stepV[i]=waveV[i+1]-waveV[i]
     dv=np.median(stepV)
     return dv
-
-def GetTAPE3_DIRPath(dirname):
-    tape3=os.path.join(dirname,TAPE3_FILENAME)
-    realpath=os.path.realpath(tape3)
-    realdir=os.path.dirname(realpath)
-    tape3dir=os.path.join(realdir,TAPE3_DIRNAME)
-    return tape3dir
-
-def MakeMOLPRFSDir(dirname,tape5,tape28,tape3dir):
-    molprfs_dir=os.path.join(dirname,MOLPRFSDIR)
-    print ("HERE dirname=",dirname, "molprfs=",molprfs_dir)
-    if (os.path.exists(molprfs_dir)):
-        print("Molecule Profile Directory allready exists. Will delete.")
-        shutil.rmtree(molprfs_dir)
-    os.mkdir(molprfs_dir)
-    target=os.path.join(molprfs_dir,TAPE5_FILENAME)
-    shutil.copy(tape5,target)
-    target=os.path.join(molprfs_dir,TAPE28_FILENAME)
-    shutil.copy(tape28,target)
-    target=os.path.join(molprfs_dir,TAPE3_DIRNAME)
-    os.symlink(tape3dir,target)
-    return molprfs_dir
 
 
 def CastTAPE3(dirname):

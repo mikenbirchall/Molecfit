@@ -1,56 +1,9 @@
-#!/usr/bin/env python3
-
-import os
-import shutil
-import sys
-import tarfile
 
 # WIP RELATED HACKS
-LNFL_BIN="lnfl"
 TOPL_DIR=os.getcwd()
 ALL_FLAG=True
 
 
-# GLOBAL VARIABLES:
-TAPE5_FILENAME  = 'TAPE5'
-TAPE1_FILENAME  = 'TAPE1'
-TAPE3_FILENAME  = 'TAPE3'
-TAPE6_FILENAME  = 'TAPE6'
-TAPE7_FILENAME  = 'TAPE7'
-TAPE10_FILENAME = 'TAPE10'
-TAPE3_DIRNAME   = "TAPE3_DIR"
-ALLMOLS_DIRNAME = "ALL"
-N_MOL_TYPES=47
-MOL_STR="\
-( 1)  H2O  ( 2)  CO2  ( 3)    O3 ( 4)   N2O ( 5)    CO ( 6)   CH4 ( 7)    O2 \
-( 8)   NO  ( 9)  SO2  (10)   NO2 (11)   NH3 (12)  HNO3 (13)    OH (14)    HF \
-(15)  HCL  (16)  HBR  (17)    HI (18)   CLO (19)   OCS (20)  H2CO (21)  HOCL \
-(22)   N2  (23)  HCN  (24) CH3CL (25)  H2O2 (26)  C2H2 (27)  C2H6 (28)   PH3 \
-(29) COF2  (30)  SF6  (31)   H2S (32) HCOOH (33)   HO2 (34)     O (35)CLONO2 \
-(36)  NO+  (37) HOBR  (38)  C2H4 (39) C3HOH (40) CH3Br (41) CH3CN (42)   CF4 \
-(43) C4H2  (44) HC3N  (45)    H2 (46)    CS (47)   SO3                       \
-"
-# Parse the MOLECULAR set string into a workable list
-def ParseMOLSTR(MOL_STR):
-
-    ret_lst=[]
-    for i in range(1,N_MOL_TYPES+1):
-        if (i<10):
-            substr="( "+str(i)+")"
-        else:
-            substr="("+str(i)+")"
-        idx =MOL_STR.find(substr)
-        mols=MOL_STR[idx+4:idx+11].strip()
-        ret_lst.append(mols)
-    # Add an all moles dirname to the list
-    ret_lst.append(ALLMOLS_DIRNAME)
-    return ret_lst
-MOLECULES_FULL_LST=ParseMOLSTR(MOL_STR)
-# Store the ALLMLS idx (which will be at the end of the list)
-ALLMOLS_IDX=len(MOLECULES_FULL_LST)-1
-
-# -----------------------------------------------------------------------------------
-# -----------------------------------------------------------------------------------
 
 # ==========
 # Functions:
@@ -78,20 +31,40 @@ def CleanOldMolecularDirectories(dir_names):
             os.rmdir(dirname)
 
 
+def ForceMakeDir(dir):
+
+    # Forecably make a directory, ie if it already exists then delete first.
+
+    if os.path.exists(dir):
+            shutil.rmtree(dir)
+    os.mkdir(dir)
+
 # -----------------------------------------------------------------------------------
 # -----------------------------------------------------------------------------------
 
 # -------------
 # MAIN ROUTINE:
 # -------------
-print(sys.argv[0])
+# Clean out any leftover Molecular Specific Directories
+#CleanOldMolecularDirectories(MOLECULES_FULL_LST)
+print("lnflOda ODA_OPTION=", ODA_OPTION)
+
+# Check if option is to run the default method
+if (ODA_OPTION=="NONE" or ODA_OPTION=="STD" or ODA_OPTION=="BOTH"):
+    cmd_str=LNFL_BIN
+    print("Running Standard:", cmd_str)
+    os.system(cmd_str)
+#    shutil.copyfile(TAPE3_FILENAME,'TAPE3_BACKUP')
+
+# Check if option is to run the Oda method
+if (ODA_OPTION!="ODA" and ODA_OPTION!="BOTH"):
+    # No request to run ODA so exist
+    sys.exit()
+
 
 # If the output directory already exists then remove it
 if (os.path.exists(TAPE3_DIRNAME)):
     shutil.rmtree(TAPE3_DIRNAME)
-
-# Clean out any leftover Molecular Specific Directories
-CleanOldMolecularDirectories(MOLECULES_FULL_LST)
 
 # Open TAPE 5 and read the 5 records that it contains
 fid=open(TAPE5_FILENAME,'r')
@@ -106,8 +79,8 @@ fid.close()
 # sel_lst as the list ofindicies of the molecules flagged in record3
 lst=record3.split()
 field=lst[0]
-print ("TAPE5 RECORD 3          =",record3)
-print ("MOLECULE SELECTION FIELD=",field)
+#print ("TAPE5 RECORD 3          =",record3)
+#print ("MOLECULE SELECTION FIELD=",field)
 sel_lst=[]
 for idx in range(0,N_MOL_TYPES):
     flag=field[idx]
@@ -128,7 +101,7 @@ for idx in sel_lst:
             field=field+"0"
     new_record=field+record3[N_MOL_TYPES:len(record3)]
 
-    os.mkdir(mol_name)
+    ForceMakeDir(mol_name)
     newfile=os.path.join(mol_name,TAPE5_FILENAME)
     fid=open(newfile,'w')
     fid.write(record1)
@@ -148,7 +121,7 @@ for idx in sel_lst:
 # full TAPE5
 if ALL_FLAG:
     # Make directory ALL
-    os.mkdir(ALLMOLS_DIRNAME)
+    ForceMakeDir(ALLMOLS_DIRNAME)
     # Softlink TAPE5
     newfile=os.path.join(ALLMOLS_DIRNAME,TAPE5_FILENAME)
     srcfile=os.path.join("../",TAPE5_FILENAME)
