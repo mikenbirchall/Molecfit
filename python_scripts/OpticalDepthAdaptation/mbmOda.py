@@ -251,6 +251,27 @@ def RunLBLRTM(dirname):
         cmd_str="cd " + wdir + " ; " + LBLRTM_BIN
         print(cmd_str)
         os.system(cmd_str)
+        # Generate a Optical depth file from the created TAPE28
+        GenOpticalDepthFile(wdir)
+
+
+def GenOpticalDepthFile(dirname):
+
+    # Get the data from the TAPE28 file
+    wv,tv,n=ReadTAPE28(dirname)
+
+    #tv=np.zeros(10)
+
+    # Have to clip negative and zero values before taking logs
+    tv=np.clip(tv,1.0e-08,None)
+
+    # Optical depth values is the log of the transmission
+    tauv=-np.log(tv)
+
+    # Store this as a numpy binary file
+    outfile=os.path.join(dirname,OPTICALDEPTHS_BINFILE)
+    np.save(outfile,tauv)
+
 
 
 print("Molecule by Molecule Profile Extraction")

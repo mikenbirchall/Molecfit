@@ -19,6 +19,21 @@ def MergeTransData(mol_lst,r_lst,npts):
 
     return tV
 
+def MergeOpDepData(mol_lst,r_lst,npts):
+
+    n=len(r_lst)
+    print("Combining ", n, " molecule transitivity profiles")
+    tV=np.zeros(npts)
+    for idx in range(n):
+        tauV=mol_lst[idx]
+        r =r_lst[idx]
+        if (r==0.0):
+            continue
+        tV=tV+r*tauV
+    tV=np.exp(-tV)
+
+    return tV
+
 def GetMolTv(mprfdir,molname):
     # Get the TAPE28 file from the relevant directory
     homedir=os.path.join(mprfdir,molname)
@@ -26,6 +41,17 @@ def GetMolTv(mprfdir,molname):
     waveV, transV, npts=ReadTAPE28(homedir)
     #tV=np.zeros(n)
     return waveV,transV,npts
+
+def GetMolOptDep(mprfdir,molname):
+    # Store this as a numpy binary file
+    outfile=os.path.join(mprfdir,molname,OPTICALDEPTHS_BINFILE)
+    tauv=np.load(outfile)
+
+    waveV,tV,npts=GetMolTv    (mprfdir,molname)
+    for i in range(npts):
+        print(molname, i, tV[i], tauv[i], math.exp(tauv[i]))
+    return tauv
+
 
 def GenerateTAPE28FMT (filename,header,waveV,mergedtransV,npts):
 
@@ -51,6 +77,7 @@ lst=CompareTAPE5('./',mprfdir)
 print("lst=",lst)
 n=len(lst)
 molTV_lst=[]
+molODV_lst=[]
 r_lst=[]
 for idx in range(n):
     r=lst[idx]
@@ -58,18 +85,21 @@ for idx in range(n):
         continue
     molname=MOLECULES_FULL_LST[idx]
     print(idx,lst[idx],r,molname)
-    waveV,tV,npts=GetMolTv(mprfdir,molname)
+    waveV,tV,npts=GetMolTv    (mprfdir,molname)
+    odV          =GetMolOptDep(mprfdir,molname)
     molTV_lst.append(tV)
+    molODV_lst.append(odV)
     r_lst.append(r)
 
-mergedtransV=MergeTransData(molTV_lst,r_lst,npts)
+mergedtransV0   = MergeTransData(molTV_lst, r_lst,npts)
+mergedtransV  = MergeOpDepData(molODV_lst,r_lst,npts)
 #dump4plot("mrgd.dat",waveV,mergedtransV,npts)
 # Locate the TAPE28 file for ALL
 alldir=os.path.join(mprfdir,'ALL')
 
 header=GetTAPE28Header(alldir)
-for line in header:
-    print(line)
+#for line in header:
+#    print(line)
 GenerateTAPE28FMT (TAPE28ODA_FILENAME,header,waveV,mergedtransV,npts)
 
 #waveV,tV,npts=ReadTAPE28('./')
