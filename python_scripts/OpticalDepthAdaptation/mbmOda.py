@@ -271,7 +271,8 @@ def GenOpticalDepthFile(dirname):
     # Store this as a numpy binary file
     outfile=os.path.join(dirname,OPTICALDEPTHS_BINFILE)
     np.save(outfile,tauv)
-
+    outfile=os.path.join(dirname,OPTICALWVNUMS_BINFILE)
+    np.save(outfile,wv)
 
 
 print("Molecule by Molecule Profile Extraction")

@@ -46,11 +46,10 @@ def GetMolOptDep(mprfdir,molname):
     # Store this as a numpy binary file
     outfile=os.path.join(mprfdir,molname,OPTICALDEPTHS_BINFILE)
     tauv=np.load(outfile)
-
-    waveV,tV,npts=GetMolTv    (mprfdir,molname)
-    for i in range(npts):
-        print(molname, i, tV[i], tauv[i], math.exp(tauv[i]))
-    return tauv
+    outfile=os.path.join(mprfdir,molname,OPTICALWVNUMS_BINFILE)
+    wavev=np.load(outfile)
+    n=np.size(wavev)
+    return wavev,tauv,n
 
 
 def GenerateTAPE28FMT (filename,header,waveV,mergedtransV,npts):
@@ -76,7 +75,7 @@ print("Inididual molecular profile components is in : ", mprfdir)
 lst=CompareTAPE5('./',mprfdir)
 print("lst=",lst)
 n=len(lst)
-molTV_lst=[]
+#molTV_lst=[]
 molODV_lst=[]
 r_lst=[]
 for idx in range(n):
@@ -84,14 +83,14 @@ for idx in range(n):
     if (r==0.0):
         continue
     molname=MOLECULES_FULL_LST[idx]
-    print(idx,lst[idx],r,molname)
-    waveV,tV,npts=GetMolTv    (mprfdir,molname)
-    odV          =GetMolOptDep(mprfdir,molname)
-    molTV_lst.append(tV)
+#    print(idx,lst[idx],r,molname)
+#    waveV,tV,npts=GetMolTv    (mprfdir,molname)
+    waveV,odV,npts=GetMolOptDep(mprfdir,molname)
+#    molTV_lst.append(tV)
     molODV_lst.append(odV)
     r_lst.append(r)
 
-mergedtransV0   = MergeTransData(molTV_lst, r_lst,npts)
+#mergedtransV0   = MergeTransData(molTV_lst, r_lst,npts)
 mergedtransV  = MergeOpDepData(molODV_lst,r_lst,npts)
 #dump4plot("mrgd.dat",waveV,mergedtransV,npts)
 # Locate the TAPE28 file for ALL
