@@ -70,7 +70,7 @@ alldir=os.path.join(mprfdir,'ALL')
 header=GetTAPE28Header(alldir)
 for line in header:
     print(line)
-GenerateTAPE28FMT ('TAPE28Oda',header,waveV,mergedtransV,npts)
+GenerateTAPE28FMT (TAPE28ODA_FILENAME,header,waveV,mergedtransV,npts)
 
 #waveV,tV,npts=ReadTAPE28('./')
 #dump4plot("TAPE28.dat",waveV,tV,npts)

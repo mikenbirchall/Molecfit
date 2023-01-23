@@ -1,6 +1,5 @@
 import matplotlib.pyplot as plt
 TMPDIR="plot28_tmpdir"
-TAPE28ODA_FILENAME='TAPE28Oda'
 
 def ReadTAPE28Oda():
 
