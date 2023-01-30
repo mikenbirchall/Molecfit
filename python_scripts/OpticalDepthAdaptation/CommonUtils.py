@@ -6,6 +6,7 @@ import glob
 import sys
 import tarfile
 import math
+import time
 import numpy as np
 
 # GLOBAL VARIABLES:

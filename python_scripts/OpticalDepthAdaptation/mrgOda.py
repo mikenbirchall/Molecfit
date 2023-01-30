@@ -24,6 +24,7 @@ def MergeOpDepData(mol_lst,r_lst,npts):
     n=len(r_lst)
     print("Combining ", n, " molecule transitivity profiles")
     tV=np.zeros(npts)
+    st=time.time()
     for idx in range(n):
         tauV=mol_lst[idx]
         r =r_lst[idx]
@@ -31,7 +32,8 @@ def MergeOpDepData(mol_lst,r_lst,npts):
             continue
         tV=tV+r*tauV
     tV=np.exp(-tV)
-
+    et=time.time()
+    print("Merge Op Dep Data Time=", 1000*(et-st), "ms")
     return tV
 
 def GetMolTv(mprfdir,molname):
