@@ -88,23 +88,37 @@ def dump4plot(fname,xV,yV,n):
 
 def GetTAPE28Contents(dirname):
 
-    # Read all lines in ascis file TAPE28 and return as list
+    # --------
+    # COMMENTS:
+    # --------
+    # Read all lines in ascis file TAPE28 in dir dirname and return as list
+    # Have to add additional smartness as required TAPE28 may have been moved
+    # by molecfit to an upper directory or by ODA scripts to TAPE28STD
 
-    file=TAPE28_FILENAME
-    filename=os.path.join(dirname,file)
+    # Assume that TAPE28 exists in the working directory as TAPE28
+    # or TAPE28STD
+    filename    =os.path.join(dirname,TAPE28_FILENAME)
+    std_filename=os.path.join(dirname,TAPE28STD_FILENAME)
 
-    # Check if present if not assume it has been moved to ../TAPE28_?
+    # Check if either are present if not assume it has been moved to ../TAPE28_?
     # and make a soft link
-    if (not os.path.exists(filename)):
+    if (not os.path.exists(filename) and not os.path.exists(std_filename) ):
         upperdir=os.path.dirname(os.path.realpath(dirname))
         globstr=os.path.join(upperdir,TAPE28_GLOBSTR)
         lst=glob.glob(globstr)
         target=lst[0]
         os.symlink(target,filename)
+    elif (os.path.exists(std_filename)):
+        # There is no TAPE28 in the working directory but there is a TAPE28STD
+        # so we use this
+        filename=std_filename
 
+    # Having got the rquired TAPE28 filename open and read
     fid=open(filename,'r')
     lines=fid.readlines()
     fid.close()
+
+    # Return the file lines as a list
     return lines
 
 def GetTAPE28Header(dirname):
@@ -243,7 +257,7 @@ def READ_TAPE5(dirname):
             # Parse the line as a list of abundencies
             lst=line.split()
             for i in range(len(lst)):
-                j=i
+                j = 8*(record_part-1) + i
                 abun[layer,j]=lst[i]
             if (record_part==nmol_lines):
                 new_record=True
