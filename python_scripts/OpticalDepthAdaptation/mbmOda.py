@@ -7,6 +7,12 @@ def setzero(str, idx):
     nstr=str[0:idx1] + "0.000e+00" + str[idx2:]
     return nstr
 
+def setone(str, idx):
+    idx1=(idx-1)*10+1
+    idx2=idx1+9
+    nstr=str[0:idx1] + "1.000e+00" + str[idx2:]
+    return nstr
+
 def setzeros(str0, idx0):
     lst=str0.split()
     n=len(lst)
@@ -163,7 +169,7 @@ def cast_TAPE5 (TAPE5source,wdir,molecule_list,dv):
     mod_header=ModifyTAPE5Header4dv(header,dv)
 
     # For each molecule in given list generate a TAPE5 file with the dv value
-    # and specification that only this moecule is to be used
+    # and specification that only this molecule is to be used
     for molecule in molecule_list:
 
         # Specify the new TAPE5 file to create in this directory
@@ -178,7 +184,7 @@ def cast_TAPE5 (TAPE5source,wdir,molecule_list,dv):
             # Determine the idx for this molecule
             mol_idx=Mol2Idx(molecule)
 
-            # Modify the records do that only the flas for this molecule
+            # Modify the records do that only the flags for this molecule
             # is non zero
             snglmol_records=modRecords4SingleMol(records,mol_idx)
 
