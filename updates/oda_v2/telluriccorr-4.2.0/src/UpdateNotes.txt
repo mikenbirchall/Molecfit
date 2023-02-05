@@ -1,0 +1,36 @@
+                            ========
+                             NOTES:
+                            ========
+
+------
+STEP1:
+------
+
+Refactored
+    mf_io_read_lblrtm_and_update_spec (...*filename*..)
+to
+    cpl_bivector* mf_io_read_lblrtm_spec (filename)
+    mf_io_read_lblrtm_and_update_spec (...*bivector*..)
+
+    so that a bivector is generated from the TAPE28 filename
+    and mf_io_read_lblrtm_and_update_spec processin the
+    data from the bivector and not the TAPE28 file itsel
+
+Changes in:
+    mf_io.c
+    mf_io.h
+    mf_lblrtm.c
+
+------
+STEP2:
+------
+Create a
+    cpl_bivector* mf_io_mergeODTables(range) (Initiially return NULL)
+Changes in:
+    mf_io.c
+    mf_io.h
+Modify mf_lblrtm.c from:
+    if (bvec==NULL) bvec=mf_io_read_lblrtm_spec (filename)
+to:
+    bvec=mf_io_mergeODTables(range)
+    if (bvec==NULL) bvec=mf_io_read_lblrtm_spec (filename)
