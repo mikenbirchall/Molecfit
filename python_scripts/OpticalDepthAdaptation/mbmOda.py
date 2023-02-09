@@ -279,6 +279,8 @@ def GenOpticalDepthFile(dirname):
     np.save(outfile,tauv)
     outfile=os.path.join(dirname,OPTICALWVNUMS_BINFILE)
     np.save(outfile,wv)
+    outfile=os.path.join(dirname,"BIVEC.dat")
+    dump4plot(outfile,wv,tauv,n)
 
 
 print("Molecule by Molecule Profile Extraction")

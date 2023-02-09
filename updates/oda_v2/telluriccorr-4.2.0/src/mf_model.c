@@ -409,6 +409,8 @@ mf_model_results * mf_model(
 
     /* Cleanup parameters */
     mf_parameters_delete(params);
+    mf_io_oda_delete_tableDB();
+    cpl_msg_info(cpl_func,"FINISHED FREEING ODA TABLE");
 
     /* Check error and return */
     if (!err) {

@@ -1442,6 +1442,321 @@ cpl_error_code mf_io_read_lblrtm_and_update_spec(
     return CPL_ERROR_NONE;
 }
 
+cpl_vector* mf_io_molecule_abundancies(mf_parameters* params, cpl_array* fitpar) {
+    int nmolec = params->config->internal.molecules.n_molec;
+    const double *par = cpl_array_get_data_double_const(fitpar);
+    cpl_vector* v=cpl_vector_new(nmolec);
+    for (cpl_size i = 0; i < nmolec; i++) {
+         cpl_vector_set(v,i,par[i]);
+    }
+    return v;
+}
+/*
+int mf_io_oda_tableDB_old(int range, int molecule, double* vec, int m, cpl_boolean set_flag) {
+
+    static double TABLE_LIST[2][11][100000];
+    static int    M_ROWS;
+
+
+    if (set_flag) {
+        for (int i=0;i<m;i++) {
+            TABLE_LIST[range][molecule][i]=vec[i];
+            M_ROWS=m;
+        }
+        return 0;
+    } else {
+        vec=TABLE_LIST[range][molecule];
+        return M_ROWS;
+    }
+}
+*/
+
+cpl_matrix* mf_io_oda_tableDB(int range, int molecule, double* vec, int nrows, int nmols, int option) {
+
+    static cpl_matrix* TABLE_LIST[2]={NULL, NULL};
+    static int         TABLE_NROW[2]={0   , 0   };
+
+    const int SET_DIMS  =1;
+    const int SET_VECTR =2;
+    const int FREE_ALL  =3;
+
+    cpl_matrix* od_matrix=TABLE_LIST[range];
+
+    if (option==SET_DIMS) {
+
+        if (od_matrix!=NULL) cpl_matrix_delete(od_matrix);
+        TABLE_LIST[range]=cpl_matrix_new(nrows,nmols);
+        TABLE_NROW[range]=nrows;
+        return TABLE_LIST[range];
+
+
+    } else if (option==SET_VECTR) {
+
+        if (od_matrix==NULL) return NULL;
+
+        for (int i=0;i<nrows;i++) {
+            if (i>TABLE_NROW[range]) break;
+            cpl_matrix_set(od_matrix,i,molecule,vec[i]);
+        }
+        return od_matrix;
+
+    } else if (option==FREE_ALL) {
+        cpl_msg_info(cpl_func,"FREE ALL");
+        for (int i=0;i<2;i++) {
+            cpl_msg_info(cpl_func,"Test OD table for range %d",i);
+            cpl_msg_info(cpl_func,"Test OD TABEL_NROW[%d]=%d ",i,TABLE_NROW[i]);
+            if (TABLE_NROW[i]==0) {
+                cpl_msg_info(cpl_func,"OD table for range %d NOT listed as allocated so leaving alone",i);
+            } else {
+                cpl_msg_info(cpl_func,"OD table for range %d listed as allocated, Freeing now",i);
+                cpl_matrix_delete(TABLE_LIST[i]);
+                TABLE_LIST[i]=NULL;
+                TABLE_NROW[i]=0;
+            };// endif
+        };//end for
+        cpl_msg_info(cpl_func,"OPTION FREE ALL LOOP FINISHED");
+    } else {
+        return TABLE_LIST[range];
+    }; // end if FREE_ALL
+
+    cpl_msg_info(cpl_func,"MNB ABOUT TO RETURN NULL");
+    return NULL;
+}
+
+void mf_io_oda_init_tableDB(int range, int nmols, int nrows) {
+
+    const int SET_DIMS  =1;
+    //const int SET_VECTR =2;
+
+    //cpl_matrix* ret;
+    mf_io_oda_tableDB(range, 0, NULL, nrows, nmols, SET_DIMS);
+}
+
+void mf_io_oda_set_tableDB(int range, int molecule, double *vec, int nrows) {
+
+    //const int SET_DIMS  =1;
+    const int SET_VECTR =2;
+
+    //cpl_matrix* ret;
+    mf_io_oda_tableDB(range, molecule, vec, nrows, 0, SET_VECTR);
+}
+
+cpl_matrix*  mf_io_oda_get_tableDB(int range) {
+
+    cpl_matrix* ret;
+    ret=mf_io_oda_tableDB(range, 0, NULL, 0, 0, 0);
+    return ret;
+}
+
+void mf_io_oda_delete_tableDB() {
+    const int FREE_ALL  =3;
+    cpl_msg_info(cpl_func,"About to free OD Tables");
+    mf_io_oda_tableDB(0, 0, NULL, 0, 0, FREE_ALL);
+}
+
+void mf_io_load_oda_table(int range,const char* lblrtm_out_filename) {
+
+    static int N_CALLS=0;
+
+    cpl_msg_info(cpl_func,"MNBXX mf_io_read_oda_table calle d for range %d", range);
+    cpl_msg_info(cpl_func,"MNBXX mf_io_read_oda_table serach for file path %s", lblrtm_out_filename);
+    char* wdir=mf_io_pwd();
+    cpl_msg_info(cpl_func,"MNBXX mf_io_read_oda_table wdir= %s", wdir);
+    size_t n=strlen(lblrtm_out_filename);
+    char path[n+1];
+    strncpy(path,lblrtm_out_filename,n-9);
+    path[n-9]='\0';
+    char *tape3file = cpl_sprintf("%s/wv_number_0/TAPE3", path);
+    cpl_msg_info(cpl_func,"MNBXX mf_io_read_oda_table TAPE3= %s", tape3file);
+    char rpath[PATH_MAX];
+    char* res=realpath(tape3file,rpath);
+    if (!res) cpl_msg_info(cpl_func,"MNBXX Problem with REAL_PATH");
+    cpl_msg_info(cpl_func,"MNBXX mf_io_read_oda_table REAL_PATH= %s", rpath);
+    n=strlen(rpath)-strlen("TAPE3");
+    char prof_dir[PATH_MAX];
+    for (size_t i=0; i<n; i++) prof_dir[i]=rpath[i];
+    prof_dir[n]='\0';
+    char* prof_dir_path = cpl_sprintf("%sINDIVIDUAL_MOLECULE_PROFS", prof_dir);
+    cpl_msg_info(cpl_func,"MNBXXZ mf_io_read_oda_table REAL_PATH= %s", prof_dir_path);
+    char* dirH2O = cpl_sprintf("%s/H2O", prof_dir_path);
+    char* dirO3  = cpl_sprintf("%s/O3",  prof_dir_path);
+    char* dirCH4 = cpl_sprintf("%s/CH4", prof_dir_path);
+    char* fileH2O = cpl_sprintf("%s/BIVEC.dat", dirH2O);
+    char* fileO3  = cpl_sprintf("%s/BIVEC.dat", dirO3);
+    char* fileCH4 = cpl_sprintf("%s/BIVEC.dat", dirCH4);
+    cpl_msg_info(cpl_func,"MNBXXQ mf_io_read_oda_table REAL_PATH= %s", dirH2O);
+    cpl_msg_info(cpl_func,"MNBXXQ mf_io_read_oda_table REAL_PATH= %s", dirO3);
+    cpl_msg_info(cpl_func,"MNBXXQ mf_io_read_oda_table REAL_PATH= %s", dirCH4);
+    cpl_msg_info(cpl_func,"MNBXXQ mf_io_read_oda_table REAL_PATH= %s", fileH2O);
+    cpl_msg_info(cpl_func,"MNBXXQ mf_io_read_oda_table REAL_PATH= %s", fileO3);
+    cpl_msg_info(cpl_func,"MNBXXQ mf_io_read_oda_table REAL_PATH= %s", fileCH4);
+
+
+    int WAV_idx=0;
+    int H2O_idx=1;
+    int  O3_idx=2;
+    int CH4_idx=3;
+    int N_MOLS =4;
+
+    cpl_bivector* bvec;
+    double* x;
+    double* y;
+    int m;
+
+    // ====
+    //  H2O
+    // ====
+    bvec= cpl_bivector_read(fileH2O);
+    m=cpl_bivector_get_size(bvec);
+    x=cpl_bivector_get_x_data(bvec);
+    y=cpl_bivector_get_y_data(bvec);
+    //for(int i=0;i<m;i++) y[i]=-log(y[i]);
+    cpl_msg_info(cpl_func,"MNBXXQR mf_io_read_oda_table H2O %d, %f, %f",m,x[0],y[0]);
+    cpl_msg_info(cpl_func,"MNBXXQR mf_io_read_oda_table H2O %d, %f, %f",m,x[1],y[1]);
+    cpl_msg_info(cpl_func,"MNBXXQR mf_io_read_oda_table H2O %d, %f, %f",m,x[2],y[2]);
+
+    mf_io_oda_init_tableDB(range,N_MOLS,m);
+
+    mf_io_oda_set_tableDB(range,WAV_idx,x, m);
+    mf_io_oda_set_tableDB(range,H2O_idx,y, m);
+    cpl_bivector_delete(bvec);
+
+    // ====
+    //  O3
+    // ====
+    bvec = cpl_bivector_read(fileO3);
+    m=cpl_bivector_get_size(bvec);
+    x=cpl_bivector_get_x_data(bvec);
+    y=cpl_bivector_get_y_data(bvec);
+    //for(int i=0;i<m;i++) y[i]=-log(y[i]);
+    mf_io_oda_set_tableDB(range, O3_idx,y, m);
+    cpl_bivector_delete(bvec);
+
+    // ====
+    //  CH4
+    // ====
+    bvec = cpl_bivector_read(fileCH4);
+    m=cpl_bivector_get_size(bvec);
+    x=cpl_bivector_get_x_data(bvec);
+    y=cpl_bivector_get_y_data(bvec);
+    //for(int i=0;i<m;i++) y[i]=-log(y[i]);
+    mf_io_oda_set_tableDB(range,CH4_idx,y, m);
+    cpl_bivector_delete(bvec);
+
+    if (N_CALLS==0 || 1==1) {
+        cpl_matrix* test_m = mf_io_oda_get_tableDB(range);
+        int nrow=cpl_matrix_get_nrow(test_m);
+        int ncol=cpl_matrix_get_ncol(test_m);
+        cpl_msg_info(cpl_func,"MNBXXQQ range=%d nrow=%d ncol=%d",range,nrow,ncol);
+        for (int i=0;i<5;i++) {
+            double v0,v1,v2,v3;
+            v0=cpl_matrix_get(test_m,i,0);
+            v1=cpl_matrix_get(test_m,i,1);
+            v2=cpl_matrix_get(test_m,i,2);
+            v3=cpl_matrix_get(test_m,i,3);
+            cpl_msg_info(cpl_func,"MNBXXQQ->%d %f %f %f %f",i,v0,exp(-v1),exp(-v2),exp(-v3));
+        }
+    }
+
+    N_CALLS++;
+
+}
+
+/*
+double** mf_io_read_oda_table(int range) {
+
+    int WAV_idx=0;
+    int H2O_idx=1;
+    int  O3_idx=2;
+    int CH4_idx=3;
+
+    cpl_msg_info(cpl_func,"MNBXXY mf_io_read_oda_table calle dfor range %d", range);
+    double* vec[4];
+    int m;
+
+    vec[WAV_idx]=mf_io_oda_tableDB(range,WAV_idx,vec, m, CPL_TRUE);
+    vec[WAV_idx]=mf_io_oda_tableDB(range,WAV_idx,vec, m, CPL_TRUE);
+    vec[WAV_idx]=mf_io_oda_tableDB(range,WAV_idx,vec, m, CPL_TRUE);
+    vec[WAV_idx]=mf_io_oda_tableDB(range,WAV_idx,vec, m, CPL_TRUE);
+
+    return vec;
+}
+*/
+
+cpl_bivector* mf_io_mergeODTables(const int range, cpl_vector* mol_abuns, const char* lblrtm_out_filename) {
+
+    static cpl_boolean FIRST_CALL=CPL_TRUE;
+    static int         N_MOLS;
+    static double      REF_ABUNS[50];
+    static cpl_boolean RANGE_TABLE_LOADED[100];
+
+    cpl_msg_info(cpl_func,"MNBX-> range =%d",range);
+    int nmols=cpl_vector_get_size(mol_abuns);
+    double* v=cpl_vector_get_data(mol_abuns);
+
+    /* Store info if this is the first call*/
+    if (FIRST_CALL) {
+        FIRST_CALL=CPL_FALSE;
+        N_MOLS=nmols;
+        for (int i=0; i<N_MOLS; i++) {
+            REF_ABUNS[i]=v[i];
+        }
+        for (int i=0; i<100; i++) {
+            RANGE_TABLE_LOADED[i]=CPL_FALSE;
+        }
+    }
+
+    /* Check if the OD table for this range has been loaded and if not then do so*/
+    if (!RANGE_TABLE_LOADED[range]) {
+        /* Load the table */
+        mf_io_load_oda_table(range,lblrtm_out_filename);
+    }
+    cpl_matrix* oda_table=mf_io_oda_get_tableDB(range);
+
+    for (int i=0; i<nmols;i++) {
+        cpl_msg_info(cpl_func,"MNBX-> mol abub %d = %f cf %f",i,v[i], REF_ABUNS[i]);
+    }
+
+    if (oda_table==NULL) {
+        cpl_msg_info(cpl_func,"MNBX-> ODA TABLE is NULL");
+        return NULL;
+    }
+
+    int nrows=cpl_matrix_get_nrow(oda_table);
+    cpl_vector* wavnum=cpl_vector_new(nrows);
+    cpl_vector* merged=cpl_vector_new(nrows);
+    double*  wv=cpl_vector_get_data(wavnum);
+    double*  mv=cpl_vector_get_data(merged);
+    //double* odm=cpl_matrix_get_data(oda_table);
+    for (int i=0; i<nrows;i++) {
+        wv[i]=cpl_matrix_get(oda_table,i,0);
+        mv[i]=0.0;
+        for (int j=0; j<nmols;j++) {
+            double scale=v[j]/REF_ABUNS[j];
+            mv[i]=mv[i]+scale*cpl_matrix_get(oda_table,i,j+1);
+        }
+        mv[i]=exp(-mv[i]);
+    }
+
+    cpl_bivector * rbv=cpl_bivector_wrap_vectors(wavnum,merged);
+    char *h_filename = cpl_sprintf("%s_HYBD",lblrtm_out_filename);
+
+    FILE *stream = fopen(h_filename, "w");
+    //cpl_bivector_dump(rbv,stream);
+
+    for (int j=0; j<nmols;j++) {
+        double scale=v[j]/REF_ABUNS[j];
+        int i=0;
+        fprintf(stream,"#MNBX scale=%g odaTable=%g\n",scale,cpl_matrix_get(oda_table,i,j+1));
+    }
+
+    for (int i=0; i<nrows;i++) {
+        fprintf(stream,"%f %f\n", wv[i], mv[i]);
+    }
+    fclose(stream);
+    cpl_bivector_delete(rbv);
+    return NULL;
+}
 // -------------------------------
 // BEGINNING OF MNB-ODA-INSERTION
 // -------------------------------

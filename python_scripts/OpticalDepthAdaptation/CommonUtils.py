@@ -76,10 +76,14 @@ def Mol2Idx(mol_str):
 def dump4plot(fname,xV,yV,n):
     fid=open(fname,'w')
     for i in range(n):
-        lst = []
-        lst.append(xV[i])
-        lst.append(yV[i])
+        #lst = []
+        #lst.append(xV[i])
+        #lst.append(yV[i])
+        #xstr='%.12g' % xV[i]
+        #ystr='%.12g' % yV[i]
+        #fid.write(xstr + ' ' + ystr + ' ' + str(yV[i]) + '\n')
         fid.write(str(xV[i])+' '+str(yV[i])+'\n')
+
     fid.close()
 
 # =========================================================

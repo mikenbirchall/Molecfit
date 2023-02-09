@@ -72,6 +72,7 @@ static cpl_error_code mf_lblrtm_range_execution(
     int                      *lblrtm_calls,
     cpl_table                *atm_profile,
     cpl_table                **spec_out,
+    cpl_vector               *mol_abuns,
     cpl_error_code           *range_status);
 
 /*  */
@@ -87,7 +88,7 @@ static cpl_table * mf_lblrtm_range_combined_and_convolved(
     const double             pixel_res,
     const double             wn1,
     const double             wn2,
-    const char               *w_dir_range);
+    const char               *w_dir_range, const int range, cpl_vector* mol_abuns);
 
 /*  */
 static cpl_error_code mf_lblrtm_create_wavelength_grid(
@@ -390,12 +391,14 @@ cpl_error_code mf_lblrtm(
     }
 
     /* Execute the LBLRTM calls */
+    cpl_vector *mol_abuns = mf_io_molecule_abundancies(params,fitpar);
     cpl_error_code err = mf_lblrtm_range_execution(config_lblrtm, params,
                                                    ismolcol,
                                                    run_execution, lblrtm_calls,
                                                    atm_profile_local,
-                                                   spec_out, range_status);
+                                                   spec_out, mol_abuns, range_status);
 
+    cpl_vector_delete(mol_abuns);
     /* Cleanup */
     if (atm_profile_local) cpl_table_delete(atm_profile_local);
 
@@ -523,6 +526,7 @@ static cpl_error_code mf_lblrtm_range_execution(
     int                      *lblrtm_calls,
     cpl_table                *atm_profile,
     cpl_table                **spec_out,
+    cpl_vector               *mol_abuns,
     cpl_error_code           *range_status)
 {
 
@@ -794,7 +798,7 @@ static cpl_error_code mf_lblrtm_range_execution(
                               double local_pixel_res = CPL_MIN(1e6, pixel_res[range]);
 
                               /* Create spectrums combine the outputs for all the wavenumbers */
-                              spec_out[range] = mf_lblrtm_range_combined_and_convolved(lblrtm_out_filename, local_pixel_res, wn1[range], wn2[range], run_w_dir_range[range]);
+                              spec_out[range] = mf_lblrtm_range_combined_and_convolved(lblrtm_out_filename, local_pixel_res, wn1[range], wn2[range], run_w_dir_range[range],range,mol_abuns);
 
                               /* Save output error */
                               err = (spec_out[range]) ? CPL_ERROR_NONE : CPL_ERROR_ILLEGAL_OUTPUT;
@@ -860,7 +864,7 @@ static cpl_table * mf_lblrtm_range_combined_and_convolved(
     const double             pixel_res,
     const double             wn1,
     const double             wn2,
-    const char               *w_dir_range)
+    const char               *w_dir_range,const int range, cpl_vector* mol_abuns)
 {
     /* Merges and rebins a set of LBLRTM radiance ("*R.*") or transmission ("*T.*") spectra */
     double limlam[2] = { MF_CONV_K_LAM / wn2,
@@ -932,13 +936,12 @@ static cpl_table * mf_lblrtm_range_combined_and_convolved(
 
                     /* Rebin spectrum */
                     char *spectrum_filename = cpl_sprintf("%s/%s_%lld", w_dir_range, lblrtm_out_filename, wavenumber + 1);
-                    cpl_msg_info(cpl_func,"MNB-> mf_io_read_lblrtm_spec call file=%s",spectrum_filename);
-                    cpl_bivector* bvec = mf_io_read_lblrtm_spec(spectrum_filename);
-                    cpl_msg_info(cpl_func,"MNB-> mf_io_read_lblrtm_spec call Done");
+                    cpl_bivector* bvec;
+                    bvec=mf_io_mergeODTables(range,mol_abuns,spectrum_filename);
+                    if (bvec==NULL) bvec = mf_io_read_lblrtm_spec(spectrum_filename);
                     err = mf_io_read_lblrtm_and_update_spec(nrow, lamv, fluxv, spectrum_filename,bvec, llim, &usampl, &jmin, &jmax);
                     cpl_free(spectrum_filename);
                     cpl_bivector_delete(bvec);
-                    //exit(0);
 
                     /* Interpolate "empty" bins by means of the closest bins that contain data points (valid flux values) */
                     if (usampl) mf_lblrtm_linear_interpolate_spectrum(lamv, fluxv, jmin, jmax);

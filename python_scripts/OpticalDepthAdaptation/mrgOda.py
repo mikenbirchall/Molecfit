@@ -23,15 +23,41 @@ def MergeOpDepData(mol_lst,r_lst,npts):
 
     n=len(r_lst)
     print("Combining ", n, " molecule transitivity profiles")
+    dfile="OD_DEBUG.txt"
+    if (os.path.exists(dfile)):
+        debug=False
+    else:
+        debug=True
+        fid=open(dfile,"w")
+        fid.write("DEBUG INFO n combs = " + " " + str(n) + "\n")
+
+    if (debug==True):
+        fid.write("DEBUG==TRUE\n")
+    else:
+        fid.write("DEBUG==FALSE\n")
+
     tV=np.zeros(npts)
     st=time.time()
     for idx in range(n):
         tauV=mol_lst[idx]
         r =r_lst[idx]
-        if (r==0.0):
-            continue
+        #if (r==0.0):
+        #    continue
+        if (debug==True):
+            fid.write(str(idx))
+            fid.write(" ")
+            fid.write(str(r))
+            fid.write(" ")
+            fid.write(str(tauV[0]))
+            fid.write("\n")
         tV=tV+r*tauV
+    if (debug==True):
+        fid.write(str(tV[0]))
+        fid.write("\n")
     tV=np.exp(-tV)
+    if (debug==True):
+        fid.write(str(tV[0]))
+        fid.close()
     et=time.time()
     print("Merge Op Dep Data Time=", 1000*(et-st), "ms")
     return tV

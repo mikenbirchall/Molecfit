@@ -29,6 +29,7 @@
 #include <cpl.h>
 
 #include "mf_constants.h"
+#include "mf_parameters.h"
 
 CPL_BEGIN_DECLS
 
@@ -228,9 +229,16 @@ cpl_error_code mf_io_read_lblrtm_and_update_spec(
     cpl_boolean              *usampl,
     int                      *jmin,
     int                      *jmax);
-
-cpl_bivector* mf_io_read_lblrtm_spec(
-    const char               *spectrum_filename);
+void          mf_io_load_oda_table(int range, const char* lblrtm_out_filename);
+double**      mf_io_read_oda_table(int range);
+cpl_bivector* mf_io_read_lblrtm_spec(const char *spectrum_filename);
+cpl_bivector* mf_io_mergeODTables(const int range, cpl_vector* mol_abuns,const char* lblrtm_out_filename);
+cpl_vector*   mf_io_molecule_abundancies(mf_parameters* params, cpl_array* fitpar);
+cpl_matrix*   mf_io_oda_tableDB(int range, int molecule, double* vec, int nrows, int nmols, int option);
+void          mf_io_oda_init_tableDB(int range, int nmols, int nrows);
+void          mf_io_oda_set_tableDB(int range, int molecule, double *vec, int nrows);
+cpl_matrix*   mf_io_oda_get_tableDB(int range);
+void          mf_io_oda_delete_tableDB(void);
 
 CPL_END_DECLS
 
