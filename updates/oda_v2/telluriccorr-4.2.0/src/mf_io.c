@@ -1684,8 +1684,8 @@ cpl_bivector* mf_io_mergeODTables(const int range, cpl_vector* mol_abuns, const 
     static double      REF_ABUNS[50];
     static cpl_boolean RANGE_TABLE_LOADED[100];
 
-    cpl_boolean GEN_HYBRID=CPL_FALSE;
-
+    //cpl_boolean GEN_HYBRID=CPL_FALSE;
+    cpl_boolean GEN_HYBRID=CPL_TRUE;
     //cpl_msg_info(cpl_func,"MNBX-> range =%d",range);
     int nmols=cpl_vector_get_size(mol_abuns);
     double* v=cpl_vector_get_data(mol_abuns);
