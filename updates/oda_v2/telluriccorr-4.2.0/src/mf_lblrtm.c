@@ -88,7 +88,7 @@ static cpl_table * mf_lblrtm_range_combined_and_convolved(
     const double             pixel_res,
     const double             wn1,
     const double             wn2,
-    const char               *w_dir_range, const int range, cpl_vector* mol_abuns);
+    const char               *w_dir_range, const int range, cpl_vector* mol_abuns, cpl_boolean USE_HYBRID);
 
 /*  */
 static cpl_error_code mf_lblrtm_create_wavelength_grid(
@@ -540,6 +540,9 @@ static cpl_error_code mf_lblrtm_range_execution(
     double         *pixel_res        = cpl_calloc(nrange, sizeof(double));
     cpl_boolean    *execute_range    = cpl_calloc(nrange, sizeof(cpl_boolean));
 
+    cpl_boolean USE_HYBRID=CPL_TRUE;
+    //cpl_boolean USE_HYBRID=CPL_FALSE;
+
     if (params->config->internal.single_spectrum) {
         cpl_msg_info(cpl_func, "(mf_lblrtm    ) Compute single spectrum with mf_lblrtm(...)");
     }
@@ -748,12 +751,15 @@ static cpl_error_code mf_lblrtm_range_execution(
                 if (execute_range[range]) {
                     for (cpl_size wavenumber = 0; wavenumber < num_wavenumber[range]; wavenumber++) {
                         double runtime;
+                        cpl_matrix* odTable =mf_io_oda_get_tableDB(range);
+                        if (!USE_HYBRID || (USE_HYBRID && odTable==NULL)) {
                         #ifdef _USE_OPENMP
                             err += mf_io_systemOpenMP(lblrtm_syscall, folder_wavenumber[range][wavenumber], &runtime);
                         #else
                             err += mf_io_system      (lblrtm_syscall, folder_wavenumber[range][wavenumber], &runtime);
                         #endif
                         runtime_lblrtm += runtime;
+                        }
                     }
                     num_calls++;
                 }
@@ -777,8 +783,10 @@ static cpl_error_code mf_lblrtm_range_execution(
 
                               char *old_output_name = cpl_sprintf("%s/%s",      folder_wavenumber[range][wavenumber], lblrtm_out_filename                                        );
                               char *new_output_name = cpl_sprintf("%s/%s_%lld", run_w_dir_range[range],               lblrtm_out_filename, name_wavenumber[range][wavenumber] + 1);
-
-                              err = mf_io_mv(old_output_name, new_output_name);
+                                cpl_matrix* odTable =mf_io_oda_get_tableDB(range);
+                                if (!USE_HYBRID || (USE_HYBRID && odTable==NULL)) {
+                                    err = mf_io_mv(old_output_name, new_output_name);
+                                }
 									
 			      if (err!=0) exit(1);
 
@@ -798,7 +806,7 @@ static cpl_error_code mf_lblrtm_range_execution(
                               double local_pixel_res = CPL_MIN(1e6, pixel_res[range]);
 
                               /* Create spectrums combine the outputs for all the wavenumbers */
-                              spec_out[range] = mf_lblrtm_range_combined_and_convolved(lblrtm_out_filename, local_pixel_res, wn1[range], wn2[range], run_w_dir_range[range],range,mol_abuns);
+                              spec_out[range] = mf_lblrtm_range_combined_and_convolved(lblrtm_out_filename, local_pixel_res, wn1[range], wn2[range], run_w_dir_range[range],range,mol_abuns, USE_HYBRID);
 
                               /* Save output error */
                               err = (spec_out[range]) ? CPL_ERROR_NONE : CPL_ERROR_ILLEGAL_OUTPUT;
@@ -864,7 +872,7 @@ static cpl_table * mf_lblrtm_range_combined_and_convolved(
     const double             pixel_res,
     const double             wn1,
     const double             wn2,
-    const char               *w_dir_range,const int range, cpl_vector* mol_abuns)
+    const char               *w_dir_range,const int range, cpl_vector* mol_abuns, cpl_boolean USE_HYBRID)
 {
     /* Merges and rebins a set of LBLRTM radiance ("*R.*") or transmission ("*T.*") spectra */
     double limlam[2] = { MF_CONV_K_LAM / wn2,
@@ -887,7 +895,13 @@ static cpl_table * mf_lblrtm_range_combined_and_convolved(
     /*** Rebin set of LBLRTM spectra (wrapper output) in wavelength units [mu m] (variable step size possible) **/
 
     /* Find number of files and wavenumber ranges. */
-    cpl_array *klim_all = mf_io_find_klim(w_dir_range, lblrtm_out_filename);
+    cpl_array *klim_all;
+    if (USE_HYBRID) {
+        klim_all=mf_io_klim_from_odatable(range);
+        if (klim_all==NULL) klim_all = mf_io_find_klim(w_dir_range, lblrtm_out_filename);
+    } else {
+        klim_all = mf_io_find_klim(w_dir_range, lblrtm_out_filename);
+    }
     if (!klim_all) {
         err = cpl_error_set_message(cpl_func, CPL_ERROR_ILLEGAL_INPUT,
                                     "Invalid input parameter(s): klim_all NULL!");
@@ -938,8 +952,16 @@ static cpl_table * mf_lblrtm_range_combined_and_convolved(
                     char *spectrum_filename = cpl_sprintf("%s/%s_%lld", w_dir_range, lblrtm_out_filename, wavenumber + 1);
                     cpl_bivector* bvec;
                     bvec=mf_io_mergeODTables(range,mol_abuns,spectrum_filename);
+                    if (bvec!=NULL) {
+                        if (USE_HYBRID) {
+                            cpl_msg_info(cpl_func,"MNBXX:BVEC was not null and not deleting to NULL");
+                        } else {
+                            cpl_bivector_delete(bvec);
+                            bvec=NULL;
+                            cpl_msg_info(cpl_func,"MNBXX:BVEC was not null so deleted and reset to NULL");                        }
+                    }
                     if (bvec==NULL) bvec = mf_io_read_lblrtm_spec(spectrum_filename);
-                    err = mf_io_read_lblrtm_and_update_spec(nrow, lamv, fluxv, spectrum_filename,bvec, llim, &usampl, &jmin, &jmax);
+                    err = mf_io_read_lblrtm_and_update_spec(nrow, lamv, fluxv, bvec, llim, &usampl, &jmin, &jmax);
                     cpl_free(spectrum_filename);
                     cpl_bivector_delete(bvec);
 

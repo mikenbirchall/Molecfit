@@ -224,7 +224,7 @@ cpl_error_code mf_io_read_lblrtm_and_update_spec(
     const cpl_size           nrow,
     double                   *lamv,
     double                   *fluxv,
-    const char               *spectrum_filename,cpl_bivector* bvec,
+    cpl_bivector             *bvec,
     const double             llim[2],
     cpl_boolean              *usampl,
     int                      *jmin,
@@ -239,6 +239,7 @@ void          mf_io_oda_init_tableDB(int range, int nmols, int nrows);
 void          mf_io_oda_set_tableDB(int range, int molecule, double *vec, int nrows);
 cpl_matrix*   mf_io_oda_get_tableDB(int range);
 void          mf_io_oda_delete_tableDB(void);
+cpl_array*    mf_io_klim_from_odatable(int range);
 
 CPL_END_DECLS
 

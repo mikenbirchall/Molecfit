@@ -1303,38 +1303,12 @@ cpl_error_code mf_io_read_lblrtm_and_update_spec(
     const cpl_size           nrow,
     double                   *lamv,
     double                   *fluxv,
-    const char               *spectrum_filename,cpl_bivector* bvec,
+    cpl_bivector             *bvec,
     const double             llim[2],
     cpl_boolean              *usampl,
     int                      *jmin,
     int                      *jmax)
 {
-    /* Check file existence */
-    cpl_msg_info(cpl_func, "(mf_io        ) Load ASCII file: %s (mf_lblrtm_rebin_spectrum)", spectrum_filename);
-    FILE *stream = fopen(spectrum_filename, "r");
-    if (!stream) {
-        return cpl_error_set_message(cpl_func, CPL_ERROR_FILE_IO,
-                                     "File opening failed: %s",
-                                     spectrum_filename);
-    }
-
-    /* Skip header */
-    char line[MF_LEN_MAX];
-    cpl_boolean endhead = CPL_FALSE;
-    if (fgets(line, MF_LEN_MAX - 1, stream)) {}
-
-    if (line[0] != '1') {
-        fclose(stream);
-        return cpl_error_set_message(cpl_func, CPL_ERROR_BAD_FILE_FORMAT,
-                                     "Unexpected file structure: %s (first character != '1')",
-                                     spectrum_filename);
-    } else {
-
-        do {
-            if (strstr(line, "WAVENUMBER") != NULL) endhead = CPL_TRUE;
-            if (fgets(line, MF_LEN_MAX - 1, stream)) {}
-        } while (endhead == CPL_FALSE);
-    }
 
     /* Search for limiting pixels and wavelengths of input grid that correspond to the given wavenumber interval
      * pixels : jmin, *jmax;  wavelengths : lmin0, lmax0 */
@@ -1437,7 +1411,6 @@ cpl_error_code mf_io_read_lblrtm_and_update_spec(
 
     }
 
-    fclose(stream);
 
     return CPL_ERROR_NONE;
 }
@@ -1548,6 +1521,24 @@ cpl_matrix*  mf_io_oda_get_tableDB(int range) {
     return ret;
 }
 
+cpl_array* mf_io_klim_from_odatable(int range) {
+
+    cpl_matrix* mat=mf_io_oda_get_tableDB(range);
+    if (mat==NULL) return NULL;
+
+    /* The wave idx is the 0th column and we want the min and max value*/
+    int wave_idx=0;
+    int m=cpl_matrix_get_nrow(mat);
+    double v1=cpl_matrix_get(mat,0,  wave_idx);
+    double v2=cpl_matrix_get(mat,m-1,wave_idx); /* Remember cpl_matrix indecies start at 0*/
+
+    /* Create and return a 2 element cpl_array with v1 and v2 value*/
+    cpl_array* klim=cpl_array_new(2,CPL_TYPE_DOUBLE);
+    cpl_array_set(klim,0,v1);
+    cpl_array_set(klim,1,v2);
+    return klim;
+}
+
 void mf_io_oda_delete_tableDB() {
     const int FREE_ALL  =3;
     cpl_msg_info(cpl_func,"About to free OD Tables");
@@ -1558,38 +1549,38 @@ void mf_io_load_oda_table(int range,const char* lblrtm_out_filename) {
 
     static int N_CALLS=0;
 
-    cpl_msg_info(cpl_func,"MNBXX mf_io_read_oda_table calle d for range %d", range);
-    cpl_msg_info(cpl_func,"MNBXX mf_io_read_oda_table serach for file path %s", lblrtm_out_filename);
-    char* wdir=mf_io_pwd();
-    cpl_msg_info(cpl_func,"MNBXX mf_io_read_oda_table wdir= %s", wdir);
+    //cpl_msg_info(cpl_func,"MNBXX mf_io_read_oda_table calle d for range %d", range);
+    //cpl_msg_info(cpl_func,"MNBXX mf_io_read_oda_table serach for file path %s", lblrtm_out_filename);
+    //char* wdir=mf_io_pwd();
+    //cpl_msg_info(cpl_func,"MNBXX mf_io_read_oda_table wdir= %s", wdir);
     size_t n=strlen(lblrtm_out_filename);
     char path[n+1];
     strncpy(path,lblrtm_out_filename,n-9);
     path[n-9]='\0';
     char *tape3file = cpl_sprintf("%s/wv_number_0/TAPE3", path);
-    cpl_msg_info(cpl_func,"MNBXX mf_io_read_oda_table TAPE3= %s", tape3file);
+    //cpl_msg_info(cpl_func,"MNBXX mf_io_read_oda_table TAPE3= %s", tape3file);
     char rpath[PATH_MAX];
     char* res=realpath(tape3file,rpath);
     if (!res) cpl_msg_info(cpl_func,"MNBXX Problem with REAL_PATH");
-    cpl_msg_info(cpl_func,"MNBXX mf_io_read_oda_table REAL_PATH= %s", rpath);
+    //cpl_msg_info(cpl_func,"MNBXX mf_io_read_oda_table REAL_PATH= %s", rpath);
     n=strlen(rpath)-strlen("TAPE3");
     char prof_dir[PATH_MAX];
     for (size_t i=0; i<n; i++) prof_dir[i]=rpath[i];
     prof_dir[n]='\0';
     char* prof_dir_path = cpl_sprintf("%sINDIVIDUAL_MOLECULE_PROFS", prof_dir);
-    cpl_msg_info(cpl_func,"MNBXXZ mf_io_read_oda_table REAL_PATH= %s", prof_dir_path);
+    //cpl_msg_info(cpl_func,"MNBXXZ mf_io_read_oda_table REAL_PATH= %s", prof_dir_path);
     char* dirH2O = cpl_sprintf("%s/H2O", prof_dir_path);
     char* dirO3  = cpl_sprintf("%s/O3",  prof_dir_path);
     char* dirCH4 = cpl_sprintf("%s/CH4", prof_dir_path);
     char* fileH2O = cpl_sprintf("%s/BIVEC.dat", dirH2O);
     char* fileO3  = cpl_sprintf("%s/BIVEC.dat", dirO3);
     char* fileCH4 = cpl_sprintf("%s/BIVEC.dat", dirCH4);
-    cpl_msg_info(cpl_func,"MNBXXQ mf_io_read_oda_table REAL_PATH= %s", dirH2O);
-    cpl_msg_info(cpl_func,"MNBXXQ mf_io_read_oda_table REAL_PATH= %s", dirO3);
-    cpl_msg_info(cpl_func,"MNBXXQ mf_io_read_oda_table REAL_PATH= %s", dirCH4);
-    cpl_msg_info(cpl_func,"MNBXXQ mf_io_read_oda_table REAL_PATH= %s", fileH2O);
-    cpl_msg_info(cpl_func,"MNBXXQ mf_io_read_oda_table REAL_PATH= %s", fileO3);
-    cpl_msg_info(cpl_func,"MNBXXQ mf_io_read_oda_table REAL_PATH= %s", fileCH4);
+    //cpl_msg_info(cpl_func,"MNBXXQ mf_io_read_oda_table REAL_PATH= %s", dirH2O);
+    //cpl_msg_info(cpl_func,"MNBXXQ mf_io_read_oda_table REAL_PATH= %s", dirO3);
+    //cpl_msg_info(cpl_func,"MNBXXQ mf_io_read_oda_table REAL_PATH= %s", dirCH4);
+    //cpl_msg_info(cpl_func,"MNBXXQ mf_io_read_oda_table REAL_PATH= %s", fileH2O);
+    //cpl_msg_info(cpl_func,"MNBXXQ mf_io_read_oda_table REAL_PATH= %s", fileO3);
+    //cpl_msg_info(cpl_func,"MNBXXQ mf_io_read_oda_table REAL_PATH= %s", fileCH4);
 
 
     int WAV_idx=0;
@@ -1611,9 +1602,9 @@ void mf_io_load_oda_table(int range,const char* lblrtm_out_filename) {
     x=cpl_bivector_get_x_data(bvec);
     y=cpl_bivector_get_y_data(bvec);
     //for(int i=0;i<m;i++) y[i]=-log(y[i]);
-    cpl_msg_info(cpl_func,"MNBXXQR mf_io_read_oda_table H2O %d, %f, %f",m,x[0],y[0]);
-    cpl_msg_info(cpl_func,"MNBXXQR mf_io_read_oda_table H2O %d, %f, %f",m,x[1],y[1]);
-    cpl_msg_info(cpl_func,"MNBXXQR mf_io_read_oda_table H2O %d, %f, %f",m,x[2],y[2]);
+    //cpl_msg_info(cpl_func,"MNBXXQR mf_io_read_oda_table H2O %d, %f, %f",m,x[0],y[0]);
+    //cpl_msg_info(cpl_func,"MNBXXQR mf_io_read_oda_table H2O %d, %f, %f",m,x[1],y[1]);
+    //cpl_msg_info(cpl_func,"MNBXXQR mf_io_read_oda_table H2O %d, %f, %f",m,x[2],y[2]);
 
     mf_io_oda_init_tableDB(range,N_MOLS,m);
 
@@ -1643,10 +1634,12 @@ void mf_io_load_oda_table(int range,const char* lblrtm_out_filename) {
     mf_io_oda_set_tableDB(range,CH4_idx,y, m);
     cpl_bivector_delete(bvec);
 
+    /*
     if (N_CALLS==0 || 1==1) {
         cpl_matrix* test_m = mf_io_oda_get_tableDB(range);
         int nrow=cpl_matrix_get_nrow(test_m);
         int ncol=cpl_matrix_get_ncol(test_m);
+
         cpl_msg_info(cpl_func,"MNBXXQQ range=%d nrow=%d ncol=%d",range,nrow,ncol);
         for (int i=0;i<5;i++) {
             double v0,v1,v2,v3;
@@ -1657,6 +1650,7 @@ void mf_io_load_oda_table(int range,const char* lblrtm_out_filename) {
             cpl_msg_info(cpl_func,"MNBXXQQ->%d %f %f %f %f",i,v0,exp(-v1),exp(-v2),exp(-v3));
         }
     }
+    */
 
     N_CALLS++;
 
@@ -1690,7 +1684,9 @@ cpl_bivector* mf_io_mergeODTables(const int range, cpl_vector* mol_abuns, const 
     static double      REF_ABUNS[50];
     static cpl_boolean RANGE_TABLE_LOADED[100];
 
-    cpl_msg_info(cpl_func,"MNBX-> range =%d",range);
+    cpl_boolean GEN_HYBRID=CPL_FALSE;
+
+    //cpl_msg_info(cpl_func,"MNBX-> range =%d",range);
     int nmols=cpl_vector_get_size(mol_abuns);
     double* v=cpl_vector_get_data(mol_abuns);
 
@@ -1713,9 +1709,9 @@ cpl_bivector* mf_io_mergeODTables(const int range, cpl_vector* mol_abuns, const 
     }
     cpl_matrix* oda_table=mf_io_oda_get_tableDB(range);
 
-    for (int i=0; i<nmols;i++) {
-        cpl_msg_info(cpl_func,"MNBX-> mol abub %d = %f cf %f",i,v[i], REF_ABUNS[i]);
-    }
+    //for (int i=0; i<nmols;i++) {
+    //    cpl_msg_info(cpl_func,"MNBX-> mol abub %d = %f cf %f",i,v[i], REF_ABUNS[i]);
+    //}
 
     if (oda_table==NULL) {
         cpl_msg_info(cpl_func,"MNBX-> ODA TABLE is NULL");
@@ -1739,23 +1735,27 @@ cpl_bivector* mf_io_mergeODTables(const int range, cpl_vector* mol_abuns, const 
     }
 
     cpl_bivector * rbv=cpl_bivector_wrap_vectors(wavnum,merged);
-    char *h_filename = cpl_sprintf("%s_HYBD",lblrtm_out_filename);
 
-    FILE *stream = fopen(h_filename, "w");
-    //cpl_bivector_dump(rbv,stream);
+    if (GEN_HYBRID) {
+        char *h_filename = cpl_sprintf("%s_HYBD",lblrtm_out_filename);
 
-    for (int j=0; j<nmols;j++) {
-        double scale=v[j]/REF_ABUNS[j];
-        int i=0;
-        fprintf(stream,"#MNBX scale=%g odaTable=%g\n",scale,cpl_matrix_get(oda_table,i,j+1));
+        FILE *stream = fopen(h_filename, "w");
+        //cpl_bivector_dump(rbv,stream);
+
+        for (int j=0; j<nmols;j++) {
+            double scale=v[j]/REF_ABUNS[j];
+            int i=0;
+            fprintf(stream,"#MNBX scale=%g odaTable=%g\n",scale,cpl_matrix_get(oda_table,i,j+1));
+        }
+
+        for (int i=0; i<nrows;i++) {
+            fprintf(stream,"%f %f\n", wv[i], mv[i]);
+        }
+        fclose(stream);
     }
-
-    for (int i=0; i<nrows;i++) {
-        fprintf(stream,"%f %f\n", wv[i], mv[i]);
-    }
-    fclose(stream);
-    cpl_bivector_delete(rbv);
-    return NULL;
+    //cpl_bivector_delete(rbv);
+    //return NULL;
+    return(rbv);
 }
 // -------------------------------
 // BEGINNING OF MNB-ODA-INSERTION
