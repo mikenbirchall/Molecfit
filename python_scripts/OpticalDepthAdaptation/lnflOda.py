@@ -2,6 +2,7 @@
 # WIP RELATED HACKS
 TOPL_DIR=os.getcwd()
 ALL_FLAG=True
+#ALL_FLAG=False
 
 
 
@@ -38,6 +39,10 @@ def ForceMakeDir(dir):
     if os.path.exists(dir):
             shutil.rmtree(dir)
     os.mkdir(dir)
+
+def SysCall(cmd_str):
+    print(cmd_str)
+    os.system(cmd_str)
 
 # -----------------------------------------------------------------------------------
 # -----------------------------------------------------------------------------------
@@ -134,11 +139,25 @@ if ALL_FLAG:
     sel_lst.append(ALLMOLS_IDX)
 
 # Now execute lnfl in each molecule directory
+process_lst=[]
 for idx in sel_lst:
     mol_name=MOLECULES_FULL_LST[idx]
     cmd_str="cd " + mol_name + " ; " + LNFL_BIN
-    print(cmd_str)
-    os.system(cmd_str)
+    #print(cmd_str)
+    #os.system(cmd_str)
+    #SysCall(cmd_str)
+    #thread=threading.Threads
+
+    #thread=threading.Thread(target=SysCall,args=(cmd_str))
+    #thread.start()
+    #thread.join()
+    process=Process(target=SysCall,args=(cmd_str,))
+    process_lst.append(process)
+    process.start()
+
+for process in process_lst:
+    process.join()
+
 
 # Now Create a Directory Substructure suitable for lblrtm
 os.mkdir(TAPE3_DIRNAME)
