@@ -1550,8 +1550,7 @@ static char OpticalDepthMoleculeString[50];
 
 void mf_io_DeclareOpticalDepthTable(int nrange, char* molec_string) {
 
-    cpl_msg_info(cpl_func,"mf_io_initialiseOpticalDepthTable nranges=%d",nrange);
-    cpl_msg_info(cpl_func,"mf_io_initialiseOpticalDepthTable molec_string=%s",molec_string);
+    cpl_msg_info(cpl_func,"Initialising Optical Depth Table for nranges=%d",nrange);
     OpticalDepthTableNRanges=nrange;
     strcpy(OpticalDepthMoleculeString,molec_string);
 
@@ -1561,7 +1560,7 @@ void mf_io_DeclareOpticalDepthTable(int nrange, char* molec_string) {
     OpticalDepthTableNMolecules=nmols;
     for (int i=0;i<nmols;i++) {
         const char* moleculeName=cpl_array_get_string(moleculeNames,i);
-        cpl_msg_info(cpl_func, "MNBXXYX2 Adding molecule %s to the list",moleculeName);
+        cpl_msg_info(cpl_func, "Adding molecule %s to the Optical Depth Table list",moleculeName);
     }
 
     /* Clean up the molecule table */
@@ -1570,6 +1569,14 @@ void mf_io_DeclareOpticalDepthTable(int nrange, char* molec_string) {
 }
 
 cpl_array* mf_io_molecstring2Names(char* molec_string) {
+
+    /* =========
+     * Purpose:
+     * =========
+     * From the molec string eg "10000110000010000001...."
+     * parse to a list of moecule names to be stored as a
+     * string array to be returned
+    */
 
     /* Create a molecule table that lists molecule name strings per idx */
     cpl_array *allMoleculeNames=mf_molecules_create_array();
@@ -1586,7 +1593,6 @@ cpl_array* mf_io_molecstring2Names(char* molec_string) {
         int idx=mol_idxv[i];
         const char* name=cpl_array_get_string(allMoleculeNames,idx);
         cpl_array_set_string(moleculeNames,i,name);
-        cpl_msg_info(cpl_func, "MNBXXYX1 Adding molecule %s to the list",name);
     }
 
     return moleculeNames;
@@ -1595,40 +1601,54 @@ cpl_array* mf_io_molecstring2Names(char* molec_string) {
 
 void mf_io_load_oda_table(int range,const char* lblrtm_out_filename) {
 
-    static int N_CALLS=0;
+    /* ========
+     * Purpose:
+     * ========
+     * Load Up the ODA data stored in bivec.dat files in the INDIVIDUAL_MOLECULE_PROFS
+     * directory into the TableDB in memory database
+     * Something of a hack. We use the full pathname of the "lblrtm_out_filename" which
+     * will be in the form dirpath/TAPE28_? to locate file dirpath/wave_nuber_0/TAPE3,
+     * which is a softlink to otherdirpath/TAPE3. INDIVIDUAL_MOLECULE_PROFS directory
+     * full path should be otherdirpath/INDIVIDUAL_MOLECULE_PROFS.
+     * In the INDIVIDUAL_MOLECULE_PROFS will be moecule subdirectores each of which
+     * will contain an ascii bivector data file designed to be read in via cpl_bivector_read()
+    */
 
-    //cpl_msg_info(cpl_func,"MNBXX mf_io_read_oda_table calle d for range %d", range);
-    //cpl_msg_info(cpl_func,"MNBXX mf_io_read_oda_table serach for file path %s", lblrtm_out_filename);
-    //char* wdir=mf_io_pwd();
-    //cpl_msg_info(cpl_func,"MNBXX mf_io_read_oda_table wdir= %s", wdir);
+    /* Parse the lblrtm_filename (assumed to be of form dipath/TAPE28_1 and find TAPE3*/
     size_t n=strlen(lblrtm_out_filename);
     char path[n+1];
     strncpy(path,lblrtm_out_filename,n-9);
     path[n-9]='\0';
     char *tape3file = cpl_sprintf("%s/wv_number_0/TAPE3", path);
-    //cpl_msg_info(cpl_func,"MNBXX mf_io_read_oda_table TAPE3= %s", tape3file);
+
+    /* Get the realpathname to softlinked TAPE3 */
     char rpath[PATH_MAX];
     char* res=realpath(tape3file,rpath);
-    if (!res) cpl_msg_info(cpl_func,"MNBXX Problem with REAL_PATH");
-    //cpl_msg_info(cpl_func,"MNBXX mf_io_read_oda_table REAL_PATH= %s", rpath);
+    if (!res) {
+        cpl_msg_info(cpl_func,"Problems locating the REAL_PATH of %s",tape3file);
+        return;
+    }
+
+    /* Find the INDIVIDUAL_MOLECULE_PROFS direcory in relation to TAPE3 */
     n=strlen(rpath)-strlen("TAPE3");
     char prof_dir[PATH_MAX];
     for (size_t i=0; i<n; i++) prof_dir[i]=rpath[i];
     prof_dir[n]='\0';
     char* prof_dir_path = cpl_sprintf("%sINDIVIDUAL_MOLECULE_PROFS", prof_dir);
 
-    cpl_msg_info(cpl_func,"MNB-------------------------------------->FROM HERE");
+    cpl_msg_info(cpl_func,"Loading Individual Molecule Optical Depth Profiles from %s",prof_dir);
 
+    /* Iterate through each molecule soecified in the molecule string */
     cpl_error_code file_error;
     cpl_array *moleculeNames=mf_io_molecstring2Names(OpticalDepthMoleculeString);
     int nmols=cpl_array_get_size(moleculeNames);
     int NCOLS=nmols+1;
     int WAVNUM_COLUMN_idx=0;
-    cpl_msg_info(cpl_func, "MNB HERE listing WAVENUMBER as %d th element",WAVNUM_COLUMN_idx);
+    cpl_msg_info(cpl_func, "Listing WAVENUMBER as the %dth column",WAVNUM_COLUMN_idx);
     for (int i=0;i<nmols;i++) {
         int column_idx=i+1;
         const char* moleculeName=cpl_array_get_string(moleculeNames,i);
-        cpl_msg_info(cpl_func, "MNB HERE listing molecule %s as %d th element",moleculeName,column_idx);
+        cpl_msg_info(cpl_func, "Listing molecule %s OD values for column %d",moleculeName,column_idx);
         char* dirMOL  = cpl_sprintf("%s/%s", prof_dir_path,moleculeName);
         char* fileMOL = cpl_sprintf("%s/BIVEC.dat", dirMOL);
         file_error=mf_io_access(fileMOL);
@@ -1638,153 +1658,51 @@ void mf_io_load_oda_table(int range,const char* lblrtm_out_filename) {
             cpl_msg_info(cpl_func,"Found file %s",fileMOL);
         }
 
-        if (file_error) exit(0);
+        /* Hack exit for cannot find files so die as nothing can be done */
+        if (file_error) return;
 
+        /* Read in the bivector for this molecule*/
+        /* Note at this stage we assume that the wavenumber axis is the same for all */
         cpl_bivector* bvec= cpl_bivector_read(fileMOL);
         int m=cpl_bivector_get_size(bvec);
-        cpl_msg_info(cpl_func,"Loaded up %d values", m);
+        cpl_msg_info(cpl_func,"Loaded up %d optical depth values for %s", m, moleculeName);
         double* x=cpl_bivector_get_x_data(bvec);
         double* y=cpl_bivector_get_y_data(bvec);
         if (i==0) {
-            cpl_msg_info(cpl_func,"Initialiseing table for range %d to be a %dx%d matrix",range, m,NCOLS);
+            /* Allocate the in memory Optical Depth Table size for this range*/
             mf_io_oda_init_tableDB(range,NCOLS,m);
-            cpl_msg_info(cpl_func,"Loaded up %d values to store as wavenum", m);
+            /* Store the wavenumber values as the 0th column*/
             mf_io_oda_set_tableDB(range,WAVNUM_COLUMN_idx,x, m);
         }
-        cpl_msg_info(cpl_func,"Loaded up %d values to store as column %d", m,column_idx);
+        /*Load up the optical depth values for the column assigned to this moleculoe*/
         mf_io_oda_set_tableDB(range,column_idx,y,m);
         cpl_bivector_delete(bvec);
 
-
     }
 
-    cpl_msg_info(cpl_func,"MNB-------------------------------------->TO HERE");
-
-    //cpl_msg_info(cpl_func,"MNBXXZ mf_io_read_oda_table REAL_PATH= %s", prof_dir_path);
-
-/*
-    char* dirH2O = cpl_sprintf("%s/H2O", prof_dir_path);
-    char* dirO3  = cpl_sprintf("%s/O3",  prof_dir_path);
-    char* dirCH4 = cpl_sprintf("%s/CH4", prof_dir_path);
-    char* fileH2O = cpl_sprintf("%s/BIVEC.dat", dirH2O);
-    char* fileO3  = cpl_sprintf("%s/BIVEC.dat", dirO3);
-    char* fileCH4 = cpl_sprintf("%s/BIVEC.dat", dirCH4);
-
-*/
-
-
-
-    //cpl_msg_info(cpl_func,"MNBXXQ mf_io_read_oda_table REAL_PATH= %s", dirH2O);
-    //cpl_msg_info(cpl_func,"MNBXXQ mf_io_read_oda_table REAL_PATH= %s", dirO3);
-    //cpl_msg_info(cpl_func,"MNBXXQ mf_io_read_oda_table REAL_PATH= %s", dirCH4);
-    //cpl_msg_info(cpl_func,"MNBXXQ mf_io_read_oda_table REAL_PATH= %s", fileH2O);
-    //cpl_msg_info(cpl_func,"MNBXXQ mf_io_read_oda_table REAL_PATH= %s", fileO3);
-    //cpl_msg_info(cpl_func,"MNBXXQ mf_io_read_oda_table REAL_PATH= %s", fileCH4);
-/*
-
-    int WAV_idx=0;
-    int H2O_idx=1;
-    int  O3_idx=2;
-    int CH4_idx=3;
-    int N_MOLS =4;
-*/
-/*
-    cpl_bivector* bvec;
-    double* x;
-    double* y;
-    int m;
-    cpl_error_code file_error;
-
-
-*/
-
-/*
-    // ====
-    //  H2O
-    // ====
-    file_error=mf_io_access(fileH2O);
-    if (file_error) return;
-    bvec= cpl_bivector_read(fileH2O);
-    m=cpl_bivector_get_size(bvec);
-    x=cpl_bivector_get_x_data(bvec);
-    y=cpl_bivector_get_y_data(bvec);
-    //for(int i=0;i<m;i++) y[i]=-log(y[i]);
-    //cpl_msg_info(cpl_func,"MNBXXQR mf_io_read_oda_table H2O %d, %f, %f",m,x[0],y[0]);
-    //cpl_msg_info(cpl_func,"MNBXXQR mf_io_read_oda_table H2O %d, %f, %f",m,x[1],y[1]);
-    //cpl_msg_info(cpl_func,"MNBXXQR mf_io_read_oda_table H2O %d, %f, %f",m,x[2],y[2]);
-
-    mf_io_oda_init_tableDB(range,N_MOLS,m);
-
-    mf_io_oda_set_tableDB(range,WAV_idx,x, m);
-    mf_io_oda_set_tableDB(range,H2O_idx,y, m);
-    cpl_bivector_delete(bvec);
-
-    // ====
-    //  O3
-    // ====
-    bvec = cpl_bivector_read(fileO3);
-    m=cpl_bivector_get_size(bvec);
-    x=cpl_bivector_get_x_data(bvec);
-    y=cpl_bivector_get_y_data(bvec);
-    //for(int i=0;i<m;i++) y[i]=-log(y[i]);
-    mf_io_oda_set_tableDB(range, O3_idx,y, m);
-    cpl_bivector_delete(bvec);
-
-    // ====
-    //  CH4
-    // ====
-    bvec = cpl_bivector_read(fileCH4);
-    m=cpl_bivector_get_size(bvec);
-    x=cpl_bivector_get_x_data(bvec);
-    y=cpl_bivector_get_y_data(bvec);
-    //for(int i=0;i<m;i++) y[i]=-log(y[i]);
-    mf_io_oda_set_tableDB(range,CH4_idx,y, m);
-    cpl_bivector_delete(bvec);
-*/
-    /*
-    if (N_CALLS==0 || 1==1) {
-        cpl_matrix* test_m = mf_io_oda_get_tableDB(range);
-        int nrow=cpl_matrix_get_nrow(test_m);
-        int ncol=cpl_matrix_get_ncol(test_m);
-
-        cpl_msg_info(cpl_func,"MNBXXQQ range=%d nrow=%d ncol=%d",range,nrow,ncol);
-        for (int i=0;i<5;i++) {
-            double v0,v1,v2,v3;
-            v0=cpl_matrix_get(test_m,i,0);
-            v1=cpl_matrix_get(test_m,i,1);
-            v2=cpl_matrix_get(test_m,i,2);
-            v3=cpl_matrix_get(test_m,i,3);
-            cpl_msg_info(cpl_func,"MNBXXQQ->%d %f %f %f %f",i,v0,exp(-v1),exp(-v2),exp(-v3));
-        }
-    }
-    */
-
-    N_CALLS++;
-
 }
-
-/*
-double** mf_io_read_oda_table(int range) {
-
-    int WAV_idx=0;
-    int H2O_idx=1;
-    int  O3_idx=2;
-    int CH4_idx=3;
-
-    cpl_msg_info(cpl_func,"MNBXXY mf_io_read_oda_table calle dfor range %d", range);
-    double* vec[4];
-    int m;
-
-    vec[WAV_idx]=mf_io_oda_tableDB(range,WAV_idx,vec, m, CPL_TRUE);
-    vec[WAV_idx]=mf_io_oda_tableDB(range,WAV_idx,vec, m, CPL_TRUE);
-    vec[WAV_idx]=mf_io_oda_tableDB(range,WAV_idx,vec, m, CPL_TRUE);
-    vec[WAV_idx]=mf_io_oda_tableDB(range,WAV_idx,vec, m, CPL_TRUE);
-
-    return vec;
-}
-*/
 
 cpl_bivector* mf_io_mergeODTables(const int range, cpl_vector* mol_abuns, const char* lblrtm_out_filename) {
+
+    /* ========
+     * Purpose:
+     * ========
+     * Given the list of molecular abundancies (mol_abuns) generate a transmission
+     * profile as the exponential of the -ve of the linear combination of the
+     * optical depth profiles of the molecules using these abundanciy values and return
+     * as a bivector.
+     *
+     * Hacks as follows:
+     * 1) GEN_HYBRID=CPL_TRUE implies create a TAPE28_HYBRID value to compare with any TAPE28
+     * file. This is a hard coding debug setting.
+     * 2) In the first call of this routine the Optical Depth values have not been loaded into
+     * memory so checks are made and if not then thee data is loaded here.
+     * 3) The lblrtm_ot_filename is used only as a means of determining the location
+     * of the ascii bivector files that contain the OD profiles if the OD table is to be
+     * loaded.
+     * 4) In the first call of this routine the abundiecies are stored as the refernece abundencies.
+    */
+
 
     static cpl_boolean FIRST_CALL=CPL_TRUE;
     static int         N_MOLS;
@@ -1793,7 +1711,7 @@ cpl_bivector* mf_io_mergeODTables(const int range, cpl_vector* mol_abuns, const 
 
     //cpl_boolean GEN_HYBRID=CPL_FALSE;
     cpl_boolean GEN_HYBRID=CPL_TRUE;
-    //cpl_msg_info(cpl_func,"MNBX-> range =%d",range);
+
     int nmols=cpl_vector_get_size(mol_abuns);
     double* v=cpl_vector_get_data(mol_abuns);
 
@@ -1811,26 +1729,34 @@ cpl_bivector* mf_io_mergeODTables(const int range, cpl_vector* mol_abuns, const 
 
     /* Check if the OD table for this range has been loaded and if not then do so*/
     if (!RANGE_TABLE_LOADED[range]) {
-        /* Load the table */
+        /* Load the table Note we use the lblrtm_out_filename path to tarack where the OD profile files are*/
         mf_io_load_oda_table(range,lblrtm_out_filename);
     }
+
+    /* Get the Optical Depth Matrix for this range
+     * Note Matrix is defined as follows:
+     * No of rows = no of data points
+     * Column 0 is the wave number cpl_bivector_wrap_vector
+     * Column's 1, to end are the Optical depth values for the molecule associated to tha column
+     */
     cpl_matrix* oda_table=mf_io_oda_get_tableDB(range);
 
-    //for (int i=0; i<nmols;i++) {
-    //    cpl_msg_info(cpl_func,"MNBX-> mol abub %d = %f cf %f",i,v[i], REF_ABUNS[i]);
-    //}
-
+    /* In cases where optical depth calculation is not being performed yje oda_table
+     * will be NULL so return NULL here
+     */
     if (oda_table==NULL) {
         cpl_msg_info(cpl_func,"MNBX-> ODA TABLE is NULL");
         return NULL;
     }
 
+    /* Allocate the vector componenets of the return bivector*/
     int nrows=cpl_matrix_get_nrow(oda_table);
     cpl_vector* wavnum=cpl_vector_new(nrows);
     cpl_vector* merged=cpl_vector_new(nrows);
     double*  wv=cpl_vector_get_data(wavnum);
     double*  mv=cpl_vector_get_data(merged);
-    //double* odm=cpl_matrix_get_data(oda_table);
+
+    /* Now combine the optical depths as a linear combination*/
     for (int i=0; i<nrows;i++) {
         wv[i]=cpl_matrix_get(oda_table,i,0);
         mv[i]=0.0;
@@ -1838,31 +1764,50 @@ cpl_bivector* mf_io_mergeODTables(const int range, cpl_vector* mol_abuns, const 
             double scale=v[j]/REF_ABUNS[j];
             mv[i]=mv[i]+scale*cpl_matrix_get(oda_table,i,j+1);
         }
+        /* Trnsmission is the exponential of the -ve of the combination of the OD's*/
         mv[i]=exp(-mv[i]);
     }
 
+    /* Define the return bivector asa wrap to these vectors*/
     cpl_bivector * rbv=cpl_bivector_wrap_vectors(wavnum,merged);
 
     if (GEN_HYBRID) {
+        /* Dump a TAPE28_HYBRID file for diagnostic/debug purposes*/
         char *h_filename = cpl_sprintf("%s_HYBD",lblrtm_out_filename);
-
         FILE *stream = fopen(h_filename, "w");
-        //cpl_bivector_dump(rbv,stream);
-
         for (int j=0; j<nmols;j++) {
             double scale=v[j]/REF_ABUNS[j];
             int i=0;
             fprintf(stream,"#MNBX scale=%g odaTable=%g\n",scale,cpl_matrix_get(oda_table,i,j+1));
         }
-
         for (int i=0; i<nrows;i++) {
             fprintf(stream,"%f %f\n", wv[i], mv[i]);
         }
         fclose(stream);
     }
-    //cpl_bivector_delete(rbv);
-    //return NULL;
+
+    /* Return the calculated transmission as a bivector*/
     return(rbv);
+}
+
+cpl_boolean mf_io_use_hybrid(void) {
+
+    /* Hack routine to return a flag based on the existance/value of
+     * env var ODA_OPTION.
+     * If env var does not exist return false
+     * If env var exists and has value "STD" return false.
+     * Otherwise return true.
+     */
+
+    /* Read the ODA_OPTION env var */
+    char* oda_option=getenv("ODA_OPTION");
+
+    cpl_msg_info(cpl_func,"ODA_OPTION = %s", oda_option);
+    if (oda_option==NULL)         return CPL_FALSE;
+    if (strcmp(oda_option,"STD")) return CPL_FALSE;
+
+    return CPL_TRUE;
+
 }
 // -------------------------------
 // BEGINNING OF MNB-ODA-INSERTION

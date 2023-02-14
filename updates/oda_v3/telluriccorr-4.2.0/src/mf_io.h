@@ -242,6 +242,7 @@ void          mf_io_oda_delete_tableDB(void);
 cpl_array*    mf_io_klim_from_odatable(int range);
 void          mf_io_DeclareOpticalDepthTable(int nrange, char* molec_string);
 cpl_array*    mf_io_molecstring2Names(char* molec_str);
+cpl_boolean mf_io_use_hybrid(void);
 CPL_END_DECLS
 
 

@@ -42,7 +42,10 @@ def ForceMakeDir(dir):
 
 def SysCall(cmd_str):
     print(cmd_str)
+    start = time.time()
     os.system(cmd_str)
+    duration = time.time() -start
+    print ("Finished " + cmd_str + " Runtime = " + str(duration))
 
 # -----------------------------------------------------------------------------------
 # -----------------------------------------------------------------------------------
@@ -154,6 +157,7 @@ for idx in sel_lst:
     process=Process(target=SysCall,args=(cmd_str,))
     process_lst.append(process)
     process.start()
+    #process.join()
 
 for process in process_lst:
     process.join()

@@ -540,8 +540,8 @@ static cpl_error_code mf_lblrtm_range_execution(
     double         *pixel_res        = cpl_calloc(nrange, sizeof(double));
     cpl_boolean    *execute_range    = cpl_calloc(nrange, sizeof(cpl_boolean));
 
-    cpl_boolean USE_HYBRID=CPL_TRUE;
-    //cpl_boolean USE_HYBRID=CPL_FALSE;
+    /* MNB-HACK Define a flag to use the HYBRID method from an env var*/
+    cpl_boolean USE_HYBRID=mf_io_use_hybrid();
 
     if (params->config->internal.single_spectrum) {
         cpl_msg_info(cpl_func, "(mf_lblrtm    ) Compute single spectrum with mf_lblrtm(...)");
