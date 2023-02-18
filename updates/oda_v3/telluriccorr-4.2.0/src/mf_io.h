@@ -252,6 +252,7 @@ cpl_array*    mf_io_klim_from_odatable(int range);
 void          mf_io_DeclareOpticalDepthTable(int nrange, char* molec_string);
 cpl_array*    mf_io_molecstring2Names(char* molec_str);
 cpl_boolean   mf_io_use_odatable(void);
+cpl_boolean  mf_io_use_stdlblrtm(void);
 void          mf_io_oda_symlink(char* target, char* destination);
 CPL_END_DECLS
 

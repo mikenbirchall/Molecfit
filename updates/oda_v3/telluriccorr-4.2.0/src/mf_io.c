@@ -1699,7 +1699,9 @@ cpl_bivector* mf_io_mergeODTables(const int range, cpl_vector* mol_abuns, const 
 
 
     //cpl_boolean GEN_HYBRID=CPL_FALSE;
-    cpl_boolean GEN_HYBRID=CPL_TRUE;
+    cpl_boolean GEN_HYBRID=CPL_FALSE;
+
+    if (mf_io_use_stdlblrtm()) GEN_HYBRID=CPL_TRUE;
 
     int nmols=cpl_vector_get_size(mol_abuns);
     double* v=cpl_vector_get_data(mol_abuns);
@@ -1774,17 +1776,37 @@ cpl_boolean mf_io_use_odatable(void) {
     char* oda_option=getenv("ODA_OPTION");
     cpl_msg_info(cpl_func,"ODA_OPTION = %s", oda_option);
 
-    if (oda_option==NULL) {
-        cpl_msg_info(cpl_func,"ODA_OPTION not set so returning FALSE");
-        return CPL_FALSE;
-    }
+    if (oda_option==NULL) return CPL_FALSE;
 
     cpl_boolean return_flag=CPL_TRUE;
     if (strcmp(oda_option,"STD"  )==0) return_flag=CPL_FALSE;
     if (strcmp(oda_option,"BOTH" )==0) return_flag=CPL_FALSE;
     if (strcmp(oda_option,"BOTH2")==0) return_flag=CPL_TRUE;
-    if (return_flag==CPL_TRUE ) cpl_msg_info(cpl_func,"ODA_OPTION set to TRUE");
-    if (return_flag==CPL_FALSE) cpl_msg_info(cpl_func,"ODA_OPTION set to FALSE");
+
+    return return_flag;
+
+}
+
+cpl_boolean mf_io_use_stdlblrtm(void) {
+
+    /* Hack routine to return a flag based on the existance/value of
+     * env var ODA_OPTION.
+     * If env var does not exist return true
+     * If env var exists and has value "STD" return false.
+     * Otherwise return true.
+     */
+
+    /* Read the ODA_OPTION env var */
+    char* oda_option=getenv("ODA_OPTION");
+    cpl_msg_info(cpl_func,"ODA_OPTION = %s", oda_option);
+
+    if (oda_option==NULL) return CPL_TRUE;
+
+    cpl_boolean return_flag=CPL_TRUE;
+    if (strcmp(oda_option,"STD"  )==0) return_flag=CPL_TRUE;
+    if (strcmp(oda_option,"BOTH" )==0) return_flag=CPL_TRUE;
+    if (strcmp(oda_option,"BOTH2")==0) return_flag=CPL_FALSE;
+
     return return_flag;
 
 }

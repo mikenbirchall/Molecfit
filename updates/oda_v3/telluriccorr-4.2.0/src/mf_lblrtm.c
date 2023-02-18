@@ -543,9 +543,9 @@ static cpl_error_code mf_lblrtm_range_execution(
     cpl_boolean    *execute_range    = cpl_calloc(nrange, sizeof(cpl_boolean));
 
     /* MNB-HACK Define a flag to use the ODA Tables method from an env var*/
-    cpl_boolean USE_ODATABLE=mf_io_use_odatable();
-    if (USE_ODATABLE==CPL_TRUE ) cpl_msg_info(cpl_func,"MNB-HACK USE_ODATABLE==CPL_TRUE");
-    if (USE_ODATABLE==CPL_FALSE) cpl_msg_info(cpl_func,"MNB-HACK USE_ODATABLE==CPL_FALSE");
+    /* MNB-HACK Define a flag to output the std LBLRTM  from an env var*/
+    cpl_boolean USE_ODATABLE =mf_io_use_odatable();
+    cpl_boolean USE_STDLBLRTM=mf_io_use_stdlblrtm();
 
     if (params->config->internal.single_spectrum) {
         cpl_msg_info(cpl_func, "(mf_lblrtm    ) Compute single spectrum with mf_lblrtm(...)");
@@ -726,11 +726,13 @@ static cpl_error_code mf_lblrtm_range_execution(
                                       } else {
                                           tape3=cpl_sprintf("%s/range_%lld/%s",oda_parameters->lnfl_wdir,range + 1,MF_AER_TAPE3_FILE);
                                       }
-                                      err = mf_io_write_lblrtm_configuration(folder_wavenumber[range][j], tape3,
+                                      if (oda_parameters!=NULL || USE_STDLBLRTM ) {
+                                        err = mf_io_write_lblrtm_configuration(folder_wavenumber[range][j], tape3,
                                                                              minc, maxc,
                                                                              vbar, angle, spec_emission, lbl_molecs,
                                                                              config_lblrtm,
                                                                              atm_profile);
+                                      }
                                 }
                             }
                         }

@@ -58,7 +58,7 @@ def SysCall(cmd_str):
 print("lnflOda ODA_OPTION=", ODA_OPTION)
 
 # Check if option is to run the default method
-if (ODA_OPTION=="NONE" or ODA_OPTION=="STD" or ODA_OPTION=="BOTH" or ODA_OPTION=="BOTH2" or 1==1):
+if (ODA_OPTION=="NONE" or ODA_OPTION=="STD" or ODA_OPTION=="BOTH"):
     cmd_str=LNFL_BIN
     print("Running Standard:", cmd_str)
     os.system(cmd_str)
@@ -124,56 +124,20 @@ for idx in sel_lst:
     srcfile=os.path.join("../",TAPE1_FILENAME)
     os.symlink(srcfile,newfile)
 
-# If ALL flag is true then create a "Molecule" subdirectoy
-# for all mols, which will conatin a Softlink TAPE5 to the
-# full TAPE5
-if ALL_FLAG:
-    # Make directory ALL
-    ForceMakeDir(ALLMOLS_DIRNAME)
-    # Softlink TAPE5
-    newfile=os.path.join(ALLMOLS_DIRNAME,TAPE5_FILENAME)
-    srcfile=os.path.join("../",TAPE5_FILENAME)
-    os.symlink(srcfile,newfile)
-    #Softlink TAPE2
-    newfile=os.path.join(ALLMOLS_DIRNAME,TAPE1_FILENAME)
-    srcfile=os.path.join("../",TAPE1_FILENAME)
-    os.symlink(srcfile,newfile)
-    # Now add the ALL molecule idx to the selection list
-    sel_lst.append(ALLMOLS_IDX)
-
 # Now execute lnfl in each molecule directory
 process_lst=[]
 for idx in sel_lst:
     mol_name=MOLECULES_FULL_LST[idx]
     cmd_str="cd " + mol_name + " ; " + LNFL_BIN
-    #print(cmd_str)
-    #os.system(cmd_str)
-    #SysCall(cmd_str)
-    #thread=threading.Threads
-
-    #thread=threading.Thread(target=SysCall,args=(cmd_str))
-    #thread.start()
-    #thread.join()
     process=Process(target=SysCall,args=(cmd_str,))
     process_lst.append(process)
     process.start()
-    #process.join()
 
+# Join the processes
 for process in process_lst:
     process.join()
 
 
-# Now Create a Directory Substructure suitable for lblrtm
-os.mkdir(TAPE3_DIRNAME)
-for idx in sel_lst:
-    mol_name=MOLECULES_FULL_LST[idx]
-    pathname=os.path.join(TAPE3_DIRNAME,mol_name)
-    os.mkdir(pathname)
-    target=os.path.join(pathname,TAPE3_FILENAME)
-    print("TOPL_DIR=",TOPL_DIR)
-    source=os.path.join(mol_name,TAPE3_FILENAME)
-    source=os.path.join(TOPL_DIR,source)
-    os.symlink(source,target)
 
 
 
