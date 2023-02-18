@@ -546,6 +546,8 @@ static cpl_error_code mf_lblrtm_range_execution(
     /* MNB-HACK Define a flag to output the std LBLRTM  from an env var*/
     cpl_boolean USE_ODATABLE =mf_io_use_odatable();
     cpl_boolean USE_STDLBLRTM=mf_io_use_stdlblrtm();
+    cpl_boolean WRITE_OUTPUTS=CPL_FALSE;
+    if (oda_parameters!=NULL || USE_STDLBLRTM ) WRITE_OUTPUTS=CPL_TRUE;
 
     if (params->config->internal.single_spectrum) {
         cpl_msg_info(cpl_func, "(mf_lblrtm    ) Compute single spectrum with mf_lblrtm(...)");
@@ -586,7 +588,7 @@ static cpl_error_code mf_lblrtm_range_execution(
                     spec_out[range]     = NULL;
                     range_status[range] = CPL_ERROR_NONE;
 
-                } else {
+                } else if(WRITE_OUTPUTS)  {
 
                     /* Create working folders */
                     if (mf_io_mkdir(run_w_dir_range[range]) != CPL_ERROR_NONE) {
@@ -716,7 +718,7 @@ static cpl_error_code mf_lblrtm_range_execution(
                                                              maxc, minc, fabs(maxc - minc), MF_LBLRTM_DELTA_ABS);
                             } else {
 
-                                err = mf_io_mkdir(folder_wavenumber[range][j]);
+                                if (WRITE_OUTPUTS) err = mf_io_mkdir(folder_wavenumber[range][j]);
                                 if (!err) {
 
                                       /* Create a symbolic link to TAPE3 (output of LNFL) and write the TAPE5 input file by LNFL execution */
@@ -726,7 +728,7 @@ static cpl_error_code mf_lblrtm_range_execution(
                                       } else {
                                           tape3=cpl_sprintf("%s/range_%lld/%s",oda_parameters->lnfl_wdir,range + 1,MF_AER_TAPE3_FILE);
                                       }
-                                      if (oda_parameters!=NULL || USE_STDLBLRTM ) {
+                                      if (WRITE_OUTPUTS) {
                                         err = mf_io_write_lblrtm_configuration(folder_wavenumber[range][j], tape3,
                                                                              minc, maxc,
                                                                              vbar, angle, spec_emission, lbl_molecs,
