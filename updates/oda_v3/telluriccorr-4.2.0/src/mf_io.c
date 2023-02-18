@@ -1634,7 +1634,7 @@ void mf_io_load_oda_table(int range,const char* lblrtm_out_filename) {
     char prof_dir[PATH_MAX];
     for (size_t i=0; i<n; i++) prof_dir[i]=rpath[i];
     prof_dir[n]='\0';
-    char* prof_dir_path = cpl_sprintf("%sINDIVIDUAL_MOLECULE_PROFS", prof_dir);
+    char* prof_dir_path = cpl_sprintf("%s/INDIVIDUAL_MOLECULE_PROFS", prof_dir);
 
     cpl_msg_info(cpl_func,"Loading Individual Molecule Optical Depth Profiles from %s",prof_dir);
 
@@ -1695,43 +1695,14 @@ cpl_bivector* mf_io_mergeODTables(const int range, cpl_vector* mol_abuns, const 
      * Hacks as follows:
      * 1) GEN_HYBRID=CPL_TRUE implies create a TAPE28_HYBRID value to compare with any TAPE28
      * file. This is a hard coding debug setting.
-     * 2) In the first call of this routine the Optical Depth values have not been loaded into
-     * memory so checks are made and if not then thee data is loaded here.
-     * 3) The lblrtm_ot_filename is used only as a means of determining the location
-     * of the ascii bivector files that contain the OD profiles if the OD table is to be
-     * loaded.
-     * 4) In the first call of this routine the abundiecies are stored as the refernece abundencies.
     */
 
-
-    static cpl_boolean FIRST_CALL=CPL_TRUE;
-    static int         N_MOLS;
-    static double      REF_ABUNS[50];
-    static cpl_boolean RANGE_TABLE_LOADED[100];
 
     //cpl_boolean GEN_HYBRID=CPL_FALSE;
     cpl_boolean GEN_HYBRID=CPL_TRUE;
 
     int nmols=cpl_vector_get_size(mol_abuns);
     double* v=cpl_vector_get_data(mol_abuns);
-
-    /* Store info if this is the first call*/
-    if (FIRST_CALL) {
-        FIRST_CALL=CPL_FALSE;
-        N_MOLS=nmols;
-        for (int i=0; i<N_MOLS; i++) {
-            REF_ABUNS[i]=v[i];
-        }
-        for (int i=0; i<100; i++) {
-            RANGE_TABLE_LOADED[i]=CPL_FALSE;
-        }
-    }
-
-    /* Check if the OD table for this range has been loaded and if not then do so*/
-    if (!RANGE_TABLE_LOADED[range]) {
-        /* Load the table Note we use the lblrtm_out_filename path to tarack where the OD profile files are*/
-        mf_io_load_oda_table(range,lblrtm_out_filename);
-    }
 
     /* Get the Optical Depth Matrix for this range
      * Note Matrix is defined as follows:
@@ -1761,7 +1732,7 @@ cpl_bivector* mf_io_mergeODTables(const int range, cpl_vector* mol_abuns, const 
         wv[i]=cpl_matrix_get(oda_table,i,0);
         mv[i]=0.0;
         for (int j=0; j<nmols;j++) {
-            double scale=v[j]/REF_ABUNS[j];
+            double scale=v[j];
             mv[i]=mv[i]+scale*cpl_matrix_get(oda_table,i,j+1);
         }
         /* Trnsmission is the exponential of the -ve of the combination of the OD's*/
@@ -1776,7 +1747,7 @@ cpl_bivector* mf_io_mergeODTables(const int range, cpl_vector* mol_abuns, const 
         char *h_filename = cpl_sprintf("%s_HYBD",lblrtm_out_filename);
         FILE *stream = fopen(h_filename, "w");
         for (int j=0; j<nmols;j++) {
-            double scale=v[j]/REF_ABUNS[j];
+            double scale=v[j];
             int i=0;
             fprintf(stream,"#MNBX scale=%g odaTable=%g\n",scale,cpl_matrix_get(oda_table,i,j+1));
         }
@@ -1790,7 +1761,7 @@ cpl_bivector* mf_io_mergeODTables(const int range, cpl_vector* mol_abuns, const 
     return(rbv);
 }
 
-cpl_boolean mf_io_use_hybrid(void) {
+cpl_boolean mf_io_use_odatable(void) {
 
     /* Hack routine to return a flag based on the existance/value of
      * env var ODA_OPTION.
@@ -1801,14 +1772,23 @@ cpl_boolean mf_io_use_hybrid(void) {
 
     /* Read the ODA_OPTION env var */
     char* oda_option=getenv("ODA_OPTION");
-
     cpl_msg_info(cpl_func,"ODA_OPTION = %s", oda_option);
-    if (oda_option==NULL)         return CPL_FALSE;
-    if (strcmp(oda_option,"STD")) return CPL_FALSE;
 
-    return CPL_TRUE;
+    if (oda_option==NULL) {
+        cpl_msg_info(cpl_func,"ODA_OPTION not set so returning FALSE");
+        return CPL_FALSE;
+    }
+
+    cpl_boolean return_flag=CPL_TRUE;
+    if (strcmp(oda_option,"STD"  )==0) return_flag=CPL_FALSE;
+    if (strcmp(oda_option,"BOTH" )==0) return_flag=CPL_FALSE;
+    if (strcmp(oda_option,"BOTH2")==0) return_flag=CPL_TRUE;
+    if (return_flag==CPL_TRUE ) cpl_msg_info(cpl_func,"ODA_OPTION set to TRUE");
+    if (return_flag==CPL_FALSE) cpl_msg_info(cpl_func,"ODA_OPTION set to FALSE");
+    return return_flag;
 
 }
+
 // -------------------------------
 // BEGINNING OF MNB-ODA-INSERTION
 // -------------------------------
@@ -1875,6 +1855,15 @@ cpl_bivector* mf_io_read_lblrtm_spec(
     return bvec;
 }
 
+
+void mf_io_oda_symlink(char* target, char* destination) {
+
+    cpl_msg_info(cpl_func,"ATtempting to link from %s", target);
+    cpl_msg_info(cpl_func,"ATtempting to link   to %s", destination);
+
+    mf_io_symlink(target,destination);
+
+}
 // ------------------------
 // END OF MNB-ODA-INSERTION
 // ------------------------

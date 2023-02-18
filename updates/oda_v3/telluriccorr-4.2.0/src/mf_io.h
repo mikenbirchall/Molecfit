@@ -54,7 +54,7 @@ CPL_BEGIN_DECLS
 #define MF_IO_TMP_FOLDER_TEMPLATE      "telluriccorr_tmp_folder"                /* Generic name for the TMP folder                                 */
 #define MF_IO_TMP_FOLDER_INIT          MF_IO_TMP_FOLDER_TEMPLATE"_XXXXXX"       /* The string "_XXXXXX" is part mandatory for mktemp(...)          */
 #define MF_IO_TMP_FOLDER_MAX_ATTEMPTS  10                                       /* Number of attempts to create the TMP Telluric Correction folder */
-
+#define MF_IO_ODA_PROFILE_DIR          "INDIVIDUAL_MOLECULE_PROFS"              /* Name of directory containing the optical depth profiles for each mol*/
 /*----------------------------------------------------------------------------*/
 /**
  *                 Global variables
@@ -76,6 +76,15 @@ CPL_BEGIN_DECLS
 /******************************************************************************/
 /* mf_lnfl: CONFIGURATION                                                     */
 /******************************************************************************/
+
+/* For overriding default values in oreder to run in ODA mode*/
+typedef struct {
+    char * work_dir;
+    char * lnfl_wdir;
+    char * lblrtm_wdir;
+    char * tape3;
+    char * lbl_molecs;
+} mf_io_oda_parameters;
 
 /* Exposed structure : Initially default values for to be modify by the user */
 typedef struct {
@@ -242,7 +251,8 @@ void          mf_io_oda_delete_tableDB(void);
 cpl_array*    mf_io_klim_from_odatable(int range);
 void          mf_io_DeclareOpticalDepthTable(int nrange, char* molec_string);
 cpl_array*    mf_io_molecstring2Names(char* molec_str);
-cpl_boolean mf_io_use_hybrid(void);
+cpl_boolean   mf_io_use_odatable(void);
+void          mf_io_oda_symlink(char* target, char* destination);
 CPL_END_DECLS
 
 

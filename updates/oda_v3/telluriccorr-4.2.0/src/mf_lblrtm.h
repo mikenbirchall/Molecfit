@@ -402,6 +402,12 @@ MF_INTERNAL cpl_error_code mf_lblrtm(
     cpl_array                *fitpar);
 
 
+cpl_error_code mf_io_lblrtm_oda(mf_io_lnfl_config  *lnfl_config,
+                                mf_io_lblrtm_config *lblrtm_config,
+                                mf_parameters       *params,
+                                cpl_table           *atm);
+
+
 CPL_END_DECLS
 
 

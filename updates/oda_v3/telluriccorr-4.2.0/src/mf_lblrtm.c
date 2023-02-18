@@ -73,7 +73,8 @@ static cpl_error_code mf_lblrtm_range_execution(
     cpl_table                *atm_profile,
     cpl_table                **spec_out,
     cpl_vector               *mol_abuns,
-    cpl_error_code           *range_status);
+    cpl_error_code           *range_status,
+    mf_io_oda_parameters     *oda_parameters);
 
 /*  */
 static cpl_error_code mf_lblrtm_molecular_correct_atm(
@@ -396,7 +397,7 @@ cpl_error_code mf_lblrtm(
                                                    ismolcol,
                                                    run_execution, lblrtm_calls,
                                                    atm_profile_local,
-                                                   spec_out, mol_abuns, range_status);
+                                                   spec_out, mol_abuns, range_status,NULL);
 
     cpl_vector_delete(mol_abuns);
     /* Cleanup */
@@ -527,7 +528,8 @@ static cpl_error_code mf_lblrtm_range_execution(
     cpl_table                *atm_profile,
     cpl_table                **spec_out,
     cpl_vector               *mol_abuns,
-    cpl_error_code           *range_status)
+    cpl_error_code           *range_status,
+    mf_io_oda_parameters     *oda_parameters)
 {
 
     /* Local parameters */
@@ -540,8 +542,10 @@ static cpl_error_code mf_lblrtm_range_execution(
     double         *pixel_res        = cpl_calloc(nrange, sizeof(double));
     cpl_boolean    *execute_range    = cpl_calloc(nrange, sizeof(cpl_boolean));
 
-    /* MNB-HACK Define a flag to use the HYBRID method from an env var*/
-    cpl_boolean USE_HYBRID=mf_io_use_hybrid();
+    /* MNB-HACK Define a flag to use the ODA Tables method from an env var*/
+    cpl_boolean USE_ODATABLE=mf_io_use_odatable();
+    if (USE_ODATABLE==CPL_TRUE ) cpl_msg_info(cpl_func,"MNB-HACK USE_ODATABLE==CPL_TRUE");
+    if (USE_ODATABLE==CPL_FALSE) cpl_msg_info(cpl_func,"MNB-HACK USE_ODATABLE==CPL_FALSE");
 
     if (params->config->internal.single_spectrum) {
         cpl_msg_info(cpl_func, "(mf_lblrtm    ) Compute single spectrum with mf_lblrtm(...)");
@@ -551,12 +555,17 @@ static cpl_error_code mf_lblrtm_range_execution(
     for (cpl_size range = 0; range < nrange; range++) {
 
         /* Compute LBLRTM spectrum. Get range (number of LBLRTM spectra) */
-        run_w_dir_range[range] = cpl_sprintf("%s/run_%lld_%s_%lld_lblrtm_call_%lld",
+        if (oda_parameters==NULL) {
+            run_w_dir_range[range] = cpl_sprintf("%s/run_%lld_%s_%lld_lblrtm_call_%lld",
                                              params->config->internal.tmp_folder,
                                              run_execution,
                                              MF_AER_WDIR_LBLRTM_RANGE_PATH,
                                              range + 1,
                                              *lblrtm_calls + range + 1);
+        } else {
+            run_w_dir_range[range] = cpl_sprintf("%s/range_%lld",
+                                             oda_parameters->lblrtm_wdir,range + 1);
+        }
 
         /* Get wavenumber range in [cm-1] */
         wn_end[   range] = cpl_table_get(params->rangetab, MF_COL_WN_END,  range, NULL)             ;
@@ -642,8 +651,12 @@ static cpl_error_code mf_lblrtm_range_execution(
 
                 double     vbar        = (minc_config + maxc_config) / 2.;
                 double     angle       = 90. - params->config->ambient.telescope_angle.value;
-                const char *lbl_molecs = params->config->internal.molecules.lbl_molecs;
-
+                const char *lbl_molecs;
+                if (oda_parameters==NULL) {
+                    lbl_molecs=params->config->internal.molecules.lbl_molecs;
+                } else {
+                    lbl_molecs=oda_parameters->lbl_molecs;
+                }
                 /* Ranges */
                 double         minc;
                 double         maxc;
@@ -707,7 +720,12 @@ static cpl_error_code mf_lblrtm_range_execution(
                                 if (!err) {
 
                                       /* Create a symbolic link to TAPE3 (output of LNFL) and write the TAPE5 input file by LNFL execution */
-                                      const char *tape3 = cpl_table_get_string(params->rangetab, MF_COL_LNFL, range);
+                                      const char *tape3;
+                                      if (oda_parameters==NULL) {
+                                          tape3 = cpl_table_get_string(params->rangetab, MF_COL_LNFL, range);
+                                      } else {
+                                          tape3=cpl_sprintf("%s/range_%lld/%s",oda_parameters->lnfl_wdir,range + 1,MF_AER_TAPE3_FILE);
+                                      }
                                       err = mf_io_write_lblrtm_configuration(folder_wavenumber[range][j], tape3,
                                                                              minc, maxc,
                                                                              vbar, angle, spec_emission, lbl_molecs,
@@ -752,7 +770,7 @@ static cpl_error_code mf_lblrtm_range_execution(
                     for (cpl_size wavenumber = 0; wavenumber < num_wavenumber[range]; wavenumber++) {
                         double runtime;
                         cpl_matrix* odTable =mf_io_oda_get_tableDB(range);
-                        if (!USE_HYBRID || (USE_HYBRID && odTable==NULL)) {
+                        if (!USE_ODATABLE || (USE_ODATABLE && odTable==NULL)) {
                         #ifdef _USE_OPENMP
                             err += mf_io_systemOpenMP(lblrtm_syscall, folder_wavenumber[range][wavenumber], &runtime);
                         #else
@@ -784,7 +802,7 @@ static cpl_error_code mf_lblrtm_range_execution(
                               char *old_output_name = cpl_sprintf("%s/%s",      folder_wavenumber[range][wavenumber], lblrtm_out_filename                                        );
                               char *new_output_name = cpl_sprintf("%s/%s_%lld", run_w_dir_range[range],               lblrtm_out_filename, name_wavenumber[range][wavenumber] + 1);
                                 cpl_matrix* odTable =mf_io_oda_get_tableDB(range);
-                                if (!USE_HYBRID || (USE_HYBRID && odTable==NULL)) {
+                                if (!USE_ODATABLE || (USE_ODATABLE && odTable==NULL)) {
                                     err = mf_io_mv(old_output_name, new_output_name);
                                 }
 									
@@ -800,13 +818,13 @@ static cpl_error_code mf_lblrtm_range_execution(
                               cpl_error_set_message(cpl_func, err,
                                                     "LBLRTM failed for wavelength interval: %5.2f-%5.2f [µm]",
                                                     MF_CONV_K_LAM / wn1[range], MF_CONV_K_LAM / wn2[range]);
-                          } else {
+                          } else if (spec_out!=NULL) {
 
                               /* Get pixel resolution */
                               double local_pixel_res = CPL_MIN(1e6, pixel_res[range]);
 
                               /* Create spectrums combine the outputs for all the wavenumbers */
-                              spec_out[range] = mf_lblrtm_range_combined_and_convolved(lblrtm_out_filename, local_pixel_res, wn1[range], wn2[range], run_w_dir_range[range],range,mol_abuns, USE_HYBRID);
+                              spec_out[range] = mf_lblrtm_range_combined_and_convolved(lblrtm_out_filename, local_pixel_res, wn1[range], wn2[range], run_w_dir_range[range],range,mol_abuns, USE_ODATABLE);
 
                               /* Save output error */
                               err = (spec_out[range]) ? CPL_ERROR_NONE : CPL_ERROR_ILLEGAL_OUTPUT;
@@ -872,7 +890,7 @@ static cpl_table * mf_lblrtm_range_combined_and_convolved(
     const double             pixel_res,
     const double             wn1,
     const double             wn2,
-    const char               *w_dir_range,const int range, cpl_vector* mol_abuns, cpl_boolean USE_HYBRID)
+    const char               *w_dir_range,const int range, cpl_vector* mol_abuns, cpl_boolean USE_ODATABLE)
 {
     /* Merges and rebins a set of LBLRTM radiance ("*R.*") or transmission ("*T.*") spectra */
     double limlam[2] = { MF_CONV_K_LAM / wn2,
@@ -896,7 +914,7 @@ static cpl_table * mf_lblrtm_range_combined_and_convolved(
 
     /* Find number of files and wavenumber ranges. */
     cpl_array *klim_all;
-    if (USE_HYBRID) {
+    if (USE_ODATABLE) {
         klim_all=mf_io_klim_from_odatable(range);
         if (klim_all==NULL) klim_all = mf_io_find_klim(w_dir_range, lblrtm_out_filename);
     } else {
@@ -953,7 +971,7 @@ static cpl_table * mf_lblrtm_range_combined_and_convolved(
                     cpl_bivector* bvec;
                     bvec=mf_io_mergeODTables(range,mol_abuns,spectrum_filename);
                     if (bvec!=NULL) {
-                        if (USE_HYBRID) {
+                        if (USE_ODATABLE==CPL_TRUE) {
                             cpl_msg_info(cpl_func,"MNBXX:BVEC was not null and not deleting to NULL");
                         } else {
                             cpl_bivector_delete(bvec);
@@ -1141,6 +1159,298 @@ static cpl_error_code mf_lblrtm_linear_interpolate_spectrum(
 
   return status;
 }
+
+
+cpl_error_code mf_io_lblrtm_oda(mf_io_lnfl_config  *lnfl_config,
+                                mf_io_lblrtm_config *lblrtm_config,
+                                mf_parameters       *params,
+                                cpl_table           *atm) {
+
+    cpl_msg_info(cpl_func,"Calling ODA LBLRTM");
+    cpl_error_code err=CPL_ERROR_NONE;
+
+
+    int nrows=cpl_table_get_nrow(atm);
+    int ncols=cpl_table_get_ncol(atm);
+    cpl_msg_info(cpl_func,"Table Details nrows=%d, ncols=%d",nrows,ncols);
+
+    if(lnfl_config==NULL)   cpl_msg_info(cpl_func,"lnfl_config is NULL");
+    if(lblrtm_config==NULL) cpl_msg_info(cpl_func,"lblrtm_config is NULL");
+    if (params==NULL)       cpl_msg_info(cpl_func,"params is NULL");
+
+    /* Molecule string */
+    char *lbl_molecs = params->config->internal.molecules.lbl_molecs;
+    int lbl_size=strlen(lbl_molecs);
+    char zero_str[lbl_size];
+    cpl_msg_info(cpl_func,"molecular string = %s",lbl_molecs);
+    cpl_array* mol_array=mf_io_molecstring2Names(lbl_molecs);
+    int nmols=cpl_array_get_size(mol_array);
+
+    /* Get number of ranges */
+    int nrange = params->config->internal.n_range;
+    cpl_msg_info(cpl_func,"Nranges=%d", nrange);
+
+    /* Create an nrange by nmols array placeholder for bivectors */
+    cpl_bivector* optical_depths[nrange][nmols];
+    for (int range=0; range <nrange; range++) {
+        for (int mol_idx=0;mol_idx<nmols;mol_idx++) {
+            optical_depths[range][mol_idx]=NULL;
+        }
+    }
+
+
+    /* Create Optical Depth working directory with molecule subdirectories   */
+    char* od_dir = cpl_sprintf("%s/%s", params->config->internal.tmp_folder, "OpticalDepthsWorkDir");
+    mf_io_mkdir(od_dir);
+    for (int mol_idx=0;mol_idx<nmols;mol_idx++) {
+
+        /* Generate a lbl string for this molecule only */
+        for (int i=0, cnt=0;i<lbl_size;i++) {
+            zero_str[i]='0';
+            if (lbl_molecs[i]=='1') if (cnt++==mol_idx) zero_str[i]='1';
+        }
+
+        /* Create a molecule specific sub directory*/
+        const char* mol_name=cpl_array_get_string(mol_array,mol_idx);
+        char* mol_dir=cpl_sprintf("%s/%s", od_dir,mol_name);
+        mf_io_mkdir(mol_dir);
+
+        /* Create an lblrtm sub work directory for this molecule */
+        char* lblrtm_wdir=cpl_sprintf("%s/%s", mol_dir,"lblrtm");
+        mf_io_mkdir(lblrtm_wdir);
+
+        /* Create a lnfl pseudo sub work directory for this molecule
+           (pseudo because we are using it to softlink TAPE3s from the true
+           workng dir to make it easier for lblrtm_range_execution to find it
+        */
+        char*   lnfl_wdir=cpl_sprintf("%s/%s", mol_dir,"lnfl"  );
+        mf_io_mkdir(  lnfl_wdir);
+
+        mf_io_oda_parameters oda_parameter;
+        oda_parameter.lbl_molecs  = zero_str;
+        oda_parameter.lnfl_wdir   = lnfl_wdir;
+        oda_parameter.lblrtm_wdir = lblrtm_wdir;
+
+        cpl_msg_info(cpl_func,"molecule %s wdir=%s",mol_name, mol_dir);
+        cpl_msg_info(cpl_func,"lbl_str=%s",oda_parameter.lbl_molecs);
+        cpl_msg_info(cpl_func,"lnfl___wdir=%s",oda_parameter.lnfl_wdir);
+        cpl_msg_info(cpl_func,"lblrtm_wdir=%s",oda_parameter.lblrtm_wdir);
+
+        /* Create range subdirectories for the lnfl wdir*/
+        for (int range = 0; range < nrange; range++) {
+
+            /* Create the range dir*/
+            char* w_dir_range = cpl_sprintf("%s/%s_%d",lnfl_wdir,"range", range + 1);
+            mf_io_mkdir(w_dir_range);
+
+            /* Softlink TAPE3 from the true working directory to this one
+             * (we do this to make it easier to find the correct TAPE3 in
+             * lblrtm_range_execution */
+            char* tape3_dest=cpl_sprintf("%s/%s",w_dir_range,"TAPE3");
+            cpl_msg_info(cpl_func,"TAPE3 dest=%s",tape3_dest);
+            char* assoc_lnfl_dir=cpl_sprintf("%s/%s_%d/%s",
+                                             params->config->internal.tmp_folder,
+                                             MF_AER_WDIR_LNFL_RANGE_PATH,
+                                             range+1,mol_name);
+
+            cpl_msg_info(cpl_func,"lnfl working dir for range %d = %s",range,w_dir_range);
+            cpl_msg_info(cpl_func,"lnfl associa dir for range %d = %s",range,assoc_lnfl_dir);
+            char* tape3_targ=cpl_sprintf("%s/%s",assoc_lnfl_dir,"TAPE3");
+            cpl_msg_info(cpl_func,"TAPE3 X targ=%s",tape3_targ);
+            mf_io_oda_symlink(tape3_targ,tape3_dest);
+
+            /* Call LBLRTM execution for ths range definition */
+            cpl_msg_info(cpl_func,"Attempt to call lblrtm from here");
+            int lblrtm_calls=0;
+            cpl_size run_execution=0;
+            const int ismolcol=1;
+            err=mf_lblrtm_range_execution(
+                                                lblrtm_config,
+                                                params,
+                                                ismolcol,
+                                                run_execution,
+                                                &lblrtm_calls,
+                                                atm,
+                                                NULL,
+                                                NULL,
+                                                NULL,
+                                                &oda_parameter);
+            cpl_msg_info(cpl_func,"Finished lblrtm with error %d",err);
+
+            /* Load the transmission data from LBLRTM's output TAPE28 file */
+            char * tape28=cpl_sprintf("%s/range_%d/%s",lblrtm_wdir,range+1,"TAPE28_1");
+            cpl_msg_info(cpl_func,"Attempting to read %s",tape28);
+            cpl_bivector* bvec = mf_io_read_lblrtm_spec(tape28);
+            if (bvec==NULL) {
+                cpl_msg_info(cpl_func,"Failed to load bvec");
+            } else {
+                optical_depths[range][mol_idx]=bvec;
+                int n=cpl_bivector_get_size(bvec);
+                cpl_msg_info(cpl_func,"Loaded %d numbers",n);
+            }
+
+        }/* end of range loop*/
+
+    }/* end for mol_idx*/
+
+    /* Define a optical depth table for each range. Note this means rebinning the bivectors
+     in each range into a single wavenumber axis*/
+    for (int range=0; range <nrange; range++) {
+
+        /* Determine which molecule specific bivector in this range has the most
+         * data points. Note the wavenumber steps will be uniform between two fixed
+         * points so the bivector with the most points has the smallest stepsize */
+        int max_n=0;
+        int ref_idx=0;
+        for (int mol_idx=0; mol_idx <nmols; mol_idx++) {
+            int n=cpl_bivector_get_size(optical_depths[range][mol_idx]);
+            if (n>max_n) {
+                max_n=n;
+                ref_idx=mol_idx;
+            }
+        }
+
+        cpl_msg_info(cpl_func,"Range %d Max bivector size=%d",range,max_n);
+
+        /* Rebin via interpolation all other bivectors to the axis of max_idx */
+        cpl_vector* ref_axis = cpl_bivector_get_x(optical_depths[range][ref_idx]);
+        double ref_axis_min=cpl_vector_get(ref_axis,0);
+        double ref_axis_max=cpl_vector_get(ref_axis,max_n-1);
+        cpl_msg_info(cpl_func,"Got XMNBX chosen axis %d Range=[%f,%f]",ref_idx,ref_axis_min,ref_axis_max);
+        for (int mol_idx=0; mol_idx <nmols; mol_idx++) {
+
+            if (mol_idx==ref_idx) continue;
+
+            /* Get the old bivector */
+            cpl_bivector* old_bvec=optical_depths[range][mol_idx];
+            int old_size=cpl_bivector_get_size(old_bvec);
+
+            /* Define a new bivector aswith the same axis as that of max_i*/
+            cpl_vector* new_x=cpl_vector_new(max_n);
+            cpl_vector* new_y=cpl_vector_new(max_n);
+            for (int i=0;i<max_n;i++) cpl_vector_set(new_y,i,0.0);
+            cpl_vector_copy(new_x,ref_axis);
+            cpl_msg_info(cpl_func,"Creates newxy vector for %d",mol_idx);
+            cpl_bivector* new_bvec=cpl_bivector_wrap_vectors(new_x,new_y);
+            cpl_msg_info(cpl_func,"Created new bivector for %d",mol_idx);
+
+            /* Now rebin/interpolate the old bivec to the new axis */
+            cpl_msg_info(cpl_func,"About to Rebin new bivector for %d s1=%d, s2=%d",mol_idx,old_size,max_n);
+            cpl_msg_info(cpl_func,"old bvec size =%d",old_size);
+            int old_n= cpl_bivector_get_size(old_bvec);
+            cpl_vector* old_x=cpl_bivector_get_x(old_bvec);
+            cpl_vector* old_y=cpl_bivector_get_y(old_bvec);
+            double old_axis_min=cpl_vector_get(old_x,0);
+            double old_axis_max=cpl_vector_get(old_x,old_n-1);
+            cpl_msg_info(cpl_func,"compare min axes %f %f",ref_axis_min,old_axis_min);
+            if (ref_axis_min<old_axis_min) {
+                cpl_msg_info(cpl_func,"Expect error because ref_axis_min<old_axis_min ie %f < %f",ref_axis_min,old_axis_min);
+                cpl_msg_info(cpl_func,"Changeing old axis min");
+                cpl_vector_set(old_x,0,ref_axis_min);
+            }
+            cpl_msg_info(cpl_func,"compare max axes %f %f",ref_axis_max,old_axis_max);
+            if (ref_axis_max>old_axis_max) {
+                cpl_msg_info(cpl_func,"Expect error because ref_axis_max>old_axis_max ie %f < %f",ref_axis_max,old_axis_max);
+                cpl_msg_info(cpl_func,"Changeing old axis max");
+                cpl_vector_set(old_x,old_n,ref_axis_max);
+            }
+
+            for (int i=0;i<5;i++) {
+                double xval=cpl_vector_get(new_x,i);
+                double yval=cpl_vector_get(new_y,i);
+                double xold=cpl_vector_get(old_x,i);
+                double yold=cpl_vector_get(old_y,i);
+                cpl_msg_info(cpl_func,"New Axis i=%d x=%f y=%f cf old x=%f y=%f",i,xval,yval,xold,yold);
+            }
+
+            err=cpl_bivector_interpolate_linear(new_bvec,old_bvec);
+            new_x=cpl_bivector_get_x(new_bvec);
+            new_y=cpl_bivector_get_y(new_bvec);
+            cpl_msg_info(cpl_func,"Rebinned new bivector for %d err=%d",mol_idx,err);
+            if (err) {
+                cpl_msg_info(cpl_func,"Rebinned Error err=%d",err);
+               // cpl_error_reset();
+                if (old_bvec==NULL) {
+                    cpl_msg_info(cpl_func,"old bvec=NULL");
+                } else {
+                    cpl_msg_info(cpl_func,"old bvec size =%d",old_size);
+                }
+                return err;
+            }
+
+            for (int i=0;i<5;i++) {
+                double xval=cpl_vector_get(old_x,i);
+                double yval=cpl_vector_get(old_y,i);
+                double xval2=cpl_vector_get(new_x,i);
+                double yval2=cpl_vector_get(new_y,i);
+                cpl_msg_info(cpl_func,"i=%d x=%f y=%f ->  x=%f y=%f",i,xval,yval,xval2,yval2);
+            }
+
+
+
+            /* Replace the old bivec in the optical_depths table with the new*/
+            optical_depths[range][mol_idx]=new_bvec;
+            cpl_msg_info(cpl_func,"Replaced old bivector for new for %d",mol_idx);
+
+            /* Dont forget to delete the old bvec*/
+            cpl_bivector_delete(old_bvec);
+            cpl_msg_info(cpl_func,"Deleted old bivector for %d",mol_idx);
+
+        }/* end mol_idx loop */
+
+        /* Now we can create the OD Table for this range*/
+        for (int mol_idx=0; mol_idx<nmols;mol_idx++) {
+
+            cpl_bivector* bvec=optical_depths[range][mol_idx];
+
+            /* Get the size and the y data of this bivector */
+            int m=cpl_bivector_get_size(bvec);
+            double* y=cpl_bivector_get_y_data(bvec);
+
+            /* Optical depth = -log(transission value) */
+            for (int i=0; i<m;i++) {
+                double trans=y[i];
+                trans=CPL_MAX(trans,1.0e-08);
+                double odval=-1.0*log(trans);
+                y[i]=odval;
+            }
+
+            if (mol_idx==0) {
+
+                /* Allocate the in memory Optical Depth Table size for this range*/
+                int NCOLS=nmols+1;
+                mf_io_oda_init_tableDB(range,NCOLS,m);
+
+                /* Store the wavenumber values as the 0th column*/
+                double* x=cpl_bivector_get_x_data(bvec);
+                int WAVNUM_COLUMN_idx=0;
+                mf_io_oda_set_tableDB(range,WAVNUM_COLUMN_idx,x, m);
+
+
+            } /* endif mol_idx==0 */
+
+            /*Load up the optical depth values for the column assigned to this molecule*/
+            int column_idx=mol_idx+1;
+            mf_io_oda_set_tableDB(range,column_idx,y,m);
+
+        }/* end mol_idx loop */
+
+    }/* end range loop */
+
+
+    /* Cleanup*/
+    cpl_array_delete(mol_array);
+    for (int range=0; range <nrange; range++) {
+        for (int mol_idx=0; mol_idx <nmols; mol_idx++) {
+            cpl_bivector* bvec=optical_depths[range][mol_idx];
+            if (bvec!=NULL) cpl_bivector_delete(bvec);
+        }
+    }
+
+    return CPL_ERROR_NONE;
+}
+
+
 
 /** @endcond */
 

@@ -74,7 +74,7 @@
 #define MF_BIN_LNFL                    MF_BIN_PATH"/"MF_LNFL_NAME               /* LNFL third_party binary                              */
 #define MF_BIN_LNFL_SILENT             MF_BIN_LNFL" "MF_BINARIES_FLAGS          /* Command for exec LNFL third_party binary             */
 
-#define MF_LBLRTM_NAME                 "lblrtmOda"                              /* Binary executable of LBLRTM                          */
+#define MF_LBLRTM_NAME                 "lblrtm"                                 /* Binary executable of LBLRTM                          */
 #define MF_BIN_LBLRTM                  MF_BIN_PATH"/"MF_LBLRTM_NAME             /* LBLRTM third_party binary                            */
 #define MF_BIN_LBLRTM_SILENT           MF_BIN_LBLRTM" "MF_BINARIES_FLAGS        /* Command for exec LBLRTM third_party binary           */
 

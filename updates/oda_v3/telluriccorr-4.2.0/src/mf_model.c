@@ -284,6 +284,12 @@ mf_model_results * mf_model(
     /* Run LNFL */
     if (!err) err = mf_lnfl(config->lnfl, params);
 
+    /* Run ODA LBLRTM */
+    if (!err) err = mf_io_lblrtm_oda(config->lnfl,
+                                     config->lblrtm,
+                                     params,
+                                     results->atm_profile_combined);
+
     /* Perform fitting procedure */
     if (!err) {
 
