@@ -1595,6 +1595,9 @@ cpl_array* mf_io_molecstring2Names(char* molec_string) {
         cpl_array_set_string(moleculeNames,i,name);
     }
 
+    /* Cleanup */
+    cpl_array_delete(allMoleculeNames);
+
     return moleculeNames;
 
 }
@@ -1626,6 +1629,8 @@ void mf_io_load_oda_table(int range,const char* lblrtm_out_filename) {
     char* res=realpath(tape3file,rpath);
     if (!res) {
         cpl_msg_info(cpl_func,"Problems locating the REAL_PATH of %s",tape3file);
+        cpl_free(res);
+        cpl_free(tape3file);
         return;
     }
 
@@ -1654,6 +1659,8 @@ void mf_io_load_oda_table(int range,const char* lblrtm_out_filename) {
         file_error=mf_io_access(fileMOL);
         if (file_error) {
             cpl_msg_info(cpl_func,"Cannot find file %s",fileMOL);
+            cpl_free(dirMOL);
+            cpl_free(fileMOL);
         } else {
             cpl_msg_info(cpl_func,"Found file %s",fileMOL);
         }
@@ -1664,6 +1671,8 @@ void mf_io_load_oda_table(int range,const char* lblrtm_out_filename) {
         /* Read in the bivector for this molecule*/
         /* Note at this stage we assume that the wavenumber axis is the same for all */
         cpl_bivector* bvec= cpl_bivector_read(fileMOL);
+        cpl_free(fileMOL);
+        cpl_free(dirMOL);
         int m=cpl_bivector_get_size(bvec);
         cpl_msg_info(cpl_func,"Loaded up %d optical depth values for %s", m, moleculeName);
         double* x=cpl_bivector_get_x_data(bvec);
@@ -1679,6 +1688,12 @@ void mf_io_load_oda_table(int range,const char* lblrtm_out_filename) {
         cpl_bivector_delete(bvec);
 
     }
+
+    /* Cleanup */
+    cpl_free(res);
+    cpl_free(tape3file);
+    cpl_free(prof_dir_path);
+    cpl_array_delete(moleculeNames);
 
 }
 
@@ -1757,6 +1772,7 @@ cpl_bivector* mf_io_mergeODTables(const int range, cpl_vector* mol_abuns, const 
             fprintf(stream,"%f %f\n", wv[i], mv[i]);
         }
         fclose(stream);
+        cpl_free(h_filename);
     }
 
     /* Return the calculated transmission as a bivector*/

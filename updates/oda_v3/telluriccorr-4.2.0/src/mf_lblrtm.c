@@ -718,36 +718,50 @@ static cpl_error_code mf_lblrtm_range_execution(
                                                              maxc, minc, fabs(maxc - minc), MF_LBLRTM_DELTA_ABS);
                             } else {
 
-                                if (WRITE_OUTPUTS) err = mf_io_mkdir(folder_wavenumber[range][j]);
-                                if (!err) {
+                                if (WRITE_OUTPUTS) {
+                                    err = mf_io_mkdir(folder_wavenumber[range][j]);
+                                    if (!err) {
 
-                                      /* Create a symbolic link to TAPE3 (output of LNFL) and write the TAPE5 input file by LNFL execution */
-                                      const char *tape3;
+                                      /* Create a symbolic link to TAPE3 (output of LNFL) and
+                                       *write the TAPE5 input file by LNFL execution */
+                                      char* tape3;
                                       if (oda_parameters==NULL) {
-                                          tape3 = cpl_table_get_string(params->rangetab, MF_COL_LNFL, range);
+                                          tape3 = cpl_sprintf("%s",
+                                            cpl_table_get_string(params->rangetab,MF_COL_LNFL,range));
                                       } else {
-                                          tape3=cpl_sprintf("%s/range_%lld/%s",oda_parameters->lnfl_wdir,range + 1,MF_AER_TAPE3_FILE);
+                                          tape3=cpl_sprintf("%s/range_%lld/%s",
+                                                            oda_parameters->lnfl_wdir,range + 1,
+                                                            MF_AER_TAPE3_FILE);
                                       }
-                                      if (WRITE_OUTPUTS) {
-                                        err = mf_io_write_lblrtm_configuration(folder_wavenumber[range][j], tape3,
+
+                                      err = mf_io_write_lblrtm_configuration(folder_wavenumber[range][j], tape3,
                                                                              minc, maxc,
                                                                              vbar, angle, spec_emission, lbl_molecs,
                                                                              config_lblrtm,
                                                                              atm_profile);
-                                      }
-                                }
-                            }
-                        }
-                    }
-                }
+                                      cpl_free(tape3);
+
+                                    } /*end if (!err) */
+
+                                } /*end if (WRITE_OUTPUTS) */
+
+                            } /*end if (minc < 0 || minc >= maxc || fabs(maxc - minc) > MF_LBLRTM_DELTA_ABS)*/
+
+                        } /* end if (i==0) */
+
+                    }/* end wavenumber loop */
+
+                }/* end i loop */
 
                 execute_range[range] = (!err) ? CPL_TRUE : CPL_FALSE;
 
             } else {
 
                 execute_range[range] = CPL_FALSE;
-            }
-        }
+
+            }/* end if (range == 0 || no_single_spec)  && wn_end[range] != 0. && ismolcol == 1 && pixel_res[range] != 0. )*/
+
+        } /* end range loop */
 
         if (!err) {
 
@@ -974,13 +988,9 @@ static cpl_table * mf_lblrtm_range_combined_and_convolved(
                     char *spectrum_filename = cpl_sprintf("%s/%s_%lld", w_dir_range, lblrtm_out_filename, wavenumber + 1);
                     cpl_bivector* bvec;
                     bvec=mf_io_mergeODTables(range,mol_abuns,spectrum_filename);
-                    if (bvec!=NULL) {
-                        if (USE_ODATABLE==CPL_TRUE) {
-                            cpl_msg_info(cpl_func,"MNBXX:BVEC was not null and not deleting to NULL");
-                        } else {
-                            cpl_bivector_delete(bvec);
-                            bvec=NULL;
-                            cpl_msg_info(cpl_func,"MNBXX:BVEC was not null so deleted and reset to NULL");                        }
+                    if (bvec!=NULL && USE_ODATABLE==CPL_FALSE) {
+                        cpl_bivector_delete(bvec);
+                        bvec=NULL;
                     }
                     if (bvec==NULL) bvec = mf_io_read_lblrtm_spec(spectrum_filename);
                     err = mf_io_read_lblrtm_and_update_spec(nrow, lamv, fluxv, bvec, llim, &usampl, &jmin, &jmax);
@@ -1185,7 +1195,9 @@ cpl_error_code mf_io_lblrtm_oda(mf_io_lnfl_config  *lnfl_config,
     /* Molecule string */
     char *lbl_molecs = params->config->internal.molecules.lbl_molecs;
     int lbl_size=strlen(lbl_molecs);
-    char zero_str[lbl_size];
+    char zero_str[MF_MOLECULES_NUMBER_MAX+1];
+    for (int i=0;i<MF_MOLECULES_NUMBER_MAX;i++) zero_str[i]='0';
+    zero_str[MF_MOLECULES_NUMBER_MAX]='\0';
     cpl_msg_info(cpl_func,"molecular string = %s",lbl_molecs);
     cpl_array* mol_array=mf_io_molecstring2Names(lbl_molecs);
     int nmols=cpl_array_get_size(mol_array);
@@ -1236,7 +1248,6 @@ cpl_error_code mf_io_lblrtm_oda(mf_io_lnfl_config  *lnfl_config,
         oda_parameter.lblrtm_wdir = lblrtm_wdir;
 
         cpl_msg_info(cpl_func,"molecule %s wdir=%s",mol_name, mol_dir);
-        cpl_msg_info(cpl_func,"lbl_str=%s",oda_parameter.lbl_molecs);
         cpl_msg_info(cpl_func,"lnfl___wdir=%s",oda_parameter.lnfl_wdir);
         cpl_msg_info(cpl_func,"lblrtm_wdir=%s",oda_parameter.lblrtm_wdir);
 
@@ -1262,6 +1273,10 @@ cpl_error_code mf_io_lblrtm_oda(mf_io_lnfl_config  *lnfl_config,
             char* tape3_targ=cpl_sprintf("%s/%s",assoc_lnfl_dir,"TAPE3");
             cpl_msg_info(cpl_func,"TAPE3 X targ=%s",tape3_targ);
             mf_io_oda_symlink(tape3_targ,tape3_dest);
+            cpl_free(tape3_targ);
+            cpl_free(tape3_dest);
+            cpl_free(assoc_lnfl_dir);
+            cpl_free(w_dir_range);
 
             /* Call LBLRTM execution for ths range definition */
             cpl_msg_info(cpl_func,"Attempt to call lblrtm from here");
@@ -1285,6 +1300,7 @@ cpl_error_code mf_io_lblrtm_oda(mf_io_lnfl_config  *lnfl_config,
             char * tape28=cpl_sprintf("%s/range_%d/%s",lblrtm_wdir,range+1,"TAPE28_1");
             cpl_msg_info(cpl_func,"Attempting to read %s",tape28);
             cpl_bivector* bvec = mf_io_read_lblrtm_spec(tape28);
+            cpl_free(tape28);
             if (bvec==NULL) {
                 cpl_msg_info(cpl_func,"Failed to load bvec");
             } else {
@@ -1294,6 +1310,8 @@ cpl_error_code mf_io_lblrtm_oda(mf_io_lnfl_config  *lnfl_config,
             }
 
         }/* end of range loop*/
+        cpl_free(oda_parameter.lnfl_wdir);
+        cpl_free(oda_parameter.lblrtm_wdir);
 
     }/* end for mol_idx*/
 
@@ -1444,6 +1462,8 @@ cpl_error_code mf_io_lblrtm_oda(mf_io_lnfl_config  *lnfl_config,
 
     /* Cleanup*/
     cpl_array_delete(mol_array);
+    cpl_free(od_dir);
+
     for (int range=0; range <nrange; range++) {
         for (int mol_idx=0; mol_idx <nmols; mol_idx++) {
             cpl_bivector* bvec=optical_depths[range][mol_idx];
