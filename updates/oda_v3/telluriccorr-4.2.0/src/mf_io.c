@@ -1774,7 +1774,6 @@ cpl_boolean mf_io_use_odatable(void) {
 
     /* Read the ODA_OPTION env var */
     char* oda_option=getenv("ODA_OPTION");
-    cpl_msg_info(cpl_func,"ODA_OPTION = %s", oda_option);
 
     if (oda_option==NULL) return CPL_FALSE;
 
@@ -1798,7 +1797,6 @@ cpl_boolean mf_io_use_stdlblrtm(void) {
 
     /* Read the ODA_OPTION env var */
     char* oda_option=getenv("ODA_OPTION");
-    cpl_msg_info(cpl_func,"ODA_OPTION = %s", oda_option);
 
     if (oda_option==NULL) return CPL_TRUE;
 
@@ -1828,7 +1826,7 @@ cpl_bivector* mf_io_read_lblrtm_spec(
         cpl_msg_info(cpl_func,"UH OH");
         return NULL;
     }
-    cpl_msg_info(cpl_func,"Skipping Header");
+
     /* Skip header */
     char line[MF_LEN_MAX];
     cpl_boolean endhead = CPL_FALSE;
@@ -1847,7 +1845,7 @@ cpl_bivector* mf_io_read_lblrtm_spec(
             if (fgets(line, MF_LEN_MAX - 1, stream)) {}
         } while (endhead == CPL_FALSE);
     }
-    cpl_msg_info(cpl_func,"Finished HEADER skipping");
+
     // Count the number of lines in this file befoer proceeding
     double dummy_x, dummy_y;
     while ( fscanf(stream, "%le %le", &dummy_x, &dummy_y) == 2) {
@@ -1879,9 +1877,6 @@ cpl_bivector* mf_io_read_lblrtm_spec(
 
 
 void mf_io_oda_symlink(char* target, char* destination) {
-
-    cpl_msg_info(cpl_func,"ATtempting to link from %s", target);
-    cpl_msg_info(cpl_func,"ATtempting to link   to %s", destination);
 
     mf_io_symlink(target,destination);
 
