@@ -249,6 +249,8 @@ void          mf_io_oda_set_tableDB(int range, int molecule, double *vec, int nr
 cpl_matrix*   mf_io_oda_get_tableDB(int range);
 void          mf_io_oda_delete_tableDB(void);
 cpl_array*    mf_io_klim_from_odatable(int range);
+cpl_bivector* mf_io_merge_wavefiles(const char* w_dir,const char* filename);
+
 void          mf_io_DeclareOpticalDepthTable(int nrange, char* molec_string);
 cpl_array*    mf_io_molecstring2Names(char* molec_str);
 cpl_boolean   mf_io_use_odatable(void);

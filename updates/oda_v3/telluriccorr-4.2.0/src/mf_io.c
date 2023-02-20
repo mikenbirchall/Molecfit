@@ -1424,6 +1424,13 @@ cpl_vector* mf_io_molecule_abundancies(mf_parameters* params, cpl_array* fitpar)
     }
     return v;
 }
+
+
+
+// -------------------------------
+// BEGINNING OF MNB-ODA-INSERTION
+// -------------------------------
+
 /*
 int mf_io_oda_tableDB_old(int range, int molecule, double* vec, int m, cpl_boolean set_flag) {
 
@@ -1446,8 +1453,8 @@ int mf_io_oda_tableDB_old(int range, int molecule, double* vec, int m, cpl_boole
 
 cpl_matrix* mf_io_oda_tableDB(int range, int molecule, double* vec, int nrows, int nmols, int option) {
 
-    static cpl_matrix* TABLE_LIST[10]={NULL};
-    static int         TABLE_NROW[10]={0};
+    static cpl_matrix* TABLE_LIST[MF_PARAMETERS_MAXIMUM_NO_OF_RANGES]={NULL};
+    static int         TABLE_NROW[MF_PARAMETERS_MAXIMUM_NO_OF_RANGES]={0};
 
     const int SET_DIMS  =1;
     const int SET_VECTR =2;
@@ -1825,14 +1832,18 @@ cpl_boolean mf_io_use_stdlblrtm(void) {
 
 }
 
-// -------------------------------
-// BEGINNING OF MNB-ODA-INSERTION
-// -------------------------------
-
 
 cpl_bivector* mf_io_read_lblrtm_spec(
     const char               *spectrum_filename)
 {
+    /*
+     * Parses LBLRTM output file (TAPE28) and returns the data as a bivector (wavenum,trans)
+     * Note:
+     * This section of code was extracted from mf_io_read_lblrtm_and_update_spec so that
+     * the bivector data could be supplied by other means, eg from the ODa table and so
+     * that ODa code could simply extract this data from TAPE28 files.
+     */
+
     /* Check file existence */
     cpl_msg_info(cpl_func, "(mf_io        ) Load ASCII file: %s (mf_lblrtm_rebin_spectrum)", spectrum_filename);
     fpos_t fpos;
@@ -1889,6 +1900,107 @@ cpl_bivector* mf_io_read_lblrtm_spec(
     cpl_bivector* bvec=cpl_bivector_wrap_vectors(wv,fv);
 
     return bvec;
+}
+
+
+cpl_bivector* mf_io_merge_wavefiles(
+    const char               *w_dir,
+    const char               *lblrtm_out_filename)
+{
+
+    /*
+     * Finds all the LBLRTM output files associated with a specific range that
+     * may have been broken up into wavenumber subsections, eg TAPE28_1,TAPE28_2,
+     * ...TAPE28_n where each file has a designated range [nu0,nu1] where some
+     * overlap is expected.
+     * function mf_io_find_klim determines the number of files and produces an
+     * array to deine non overlapping intervals that we want from each file.
+     * After calling mf_io_find_klim, this routine extracts the data from
+     * each file and into bivectors which it then merges into a single
+     * (non overlapping) bivector to be returned.
+     */
+
+    /* Get the required wavenumber ranges to extract from each file*/
+    cpl_array* klim_all = mf_io_find_klim(w_dir,lblrtm_out_filename);
+    cpl_size nfiles=cpl_array_get_size(klim_all)-1;
+
+    cpl_msg_info(cpl_func,"Found %lld %s files in directory %s", nfiles,lblrtm_out_filename,w_dir);
+    cpl_msg_info(cpl_func,"KLM range:%f %f", cpl_array_get(klim_all,0,NULL),cpl_array_get(klim_all,nfiles,NULL));
+    /*Declare nfile bivectors to contain the data from each file */
+    cpl_bivector* bivector_lst[nfiles];
+
+    /*Declare the begin and end indecies for the range that we will use for each bivector */
+    int idx0V[nfiles];
+    int idx1V[nfiles];
+
+    /* Iterate through each file */
+    int npts=0;
+    for (cpl_size file_i=1;file_i<=nfiles;file_i++) {
+
+        /*From the klim all array get the [nu0,nu1] range to select from */
+        double nu0=cpl_array_get(klim_all,file_i-1,NULL);
+        double nu1=cpl_array_get(klim_all,file_i  ,NULL);
+
+        /*Import the data from this file a a bivector (wavenum,trans)*/
+        char *filename = cpl_sprintf("%s/%s_%lld",w_dir,lblrtm_out_filename,file_i);
+        bivector_lst[file_i-1]=mf_io_read_lblrtm_spec(filename);
+        cpl_free(filename);
+
+        /* Get the wavenumber axis */
+        cpl_vector* nu_axis=cpl_bivector_get_x(bivector_lst[file_i-1]);
+
+        /* Find the first index of this vector that is within [nu0,nu1] range */
+        int n=cpl_vector_get_size(nu_axis);
+        cpl_msg_info(cpl_func,"nu range=[%f,%f]",cpl_vector_get(nu_axis,0),cpl_vector_get(nu_axis,n-1));
+        idx0V[file_i-1]=0; /*Default value*/
+        for (int i=0;i<n;i++) {
+            if (cpl_vector_get(nu_axis,i)<nu0) continue;
+            idx0V[file_i-1]=i;
+            cpl_msg_info(cpl_func,"idx0=%d, val=%f",i,cpl_vector_get(nu_axis,i));
+            break;
+        } /* end i loop */
+
+        /* Find the last index of this vector that is within [nu0,nu1] range */
+        idx1V[file_i-1]=n-1; /*Default value*/
+        for (int i=idx0V[file_i-1];i<n;i++) {
+            if (cpl_vector_get(nu_axis,i)<nu1) continue;
+            idx1V[file_i-1]=i;
+            cpl_msg_info(cpl_func,"idx1=%d, val=%f",i,cpl_vector_get(nu_axis,i));
+            break;
+        } /* end i loop */
+
+        /* Add the number of new points we will need for our merged bivector*/
+        npts=npts+idx1V[file_i-1]-idx0V[file_i-1]+1;
+
+    }/* end file_i loop*/
+
+    /* Allocate a return bivector to contain the merged data points*/
+    cpl_bivector* bivec_ret=cpl_bivector_new(npts);
+    cpl_vector* x_ret = cpl_bivector_get_x(bivec_ret);
+    cpl_vector* y_ret = cpl_bivector_get_y(bivec_ret);
+
+    /* Iterate through each file and copy the required sections into the return bivector */
+    int ret_idx=0;
+    for (cpl_size file_i=1;file_i<=nfiles;file_i++) {
+        cpl_vector* nu_axis=cpl_bivector_get_x(bivector_lst[file_i-1]);
+        cpl_vector* trans_v=cpl_bivector_get_y(bivector_lst[file_i-1]);
+        for (int i=idx0V[file_i-1];i<=idx1V[file_i-1]; i++) {
+            double nuval=cpl_vector_get(nu_axis,i);
+            double trval=cpl_vector_get(trans_v,i);
+            cpl_vector_set(x_ret,ret_idx,nuval);
+            cpl_vector_set(y_ret,ret_idx,trval);
+            ret_idx++;
+        } /* end i loop */
+    }/* end file_i loop */
+
+    /* Cleanup*/
+    cpl_array_delete(klim_all);
+    for (cpl_size file_i=1;file_i<=nfiles;file_i++) {
+        cpl_bivector_delete(bivector_lst[file_i-1]);
+    }
+
+    return bivec_ret;
+
 }
 
 

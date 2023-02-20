@@ -1180,6 +1180,27 @@ cpl_error_code mf_io_lblrtm_oda(mf_io_lnfl_config  *lnfl_config,
                                 mf_parameters       *params,
                                 cpl_table           *atm) {
 
+    /*
+     * --------
+     * PURPOSE:
+     * --------
+     * Generating and loading into memory the ODa tables needed for the ODa process.
+     *
+     * LBLRTM has to be executed for individual molecule profiles, i.e. TAPE5 has to be
+     * generated for each molecule the relevant TAPE3 associated with that molecule has
+     * to be soft linked and the trasmission data has to be obtained from the output
+     * TAPE28 files for each molecule.
+     * As much usage as possible is made from mf_lblrtm_range_execution to prep and call
+     * LBLRTM.
+     * Note:
+     * mf_lblrtm_range_execution may decide that wavenumber range is too long and needs
+     * breaking down into several subregionsm wavenumber_0,wavenumber_1 etc and call LBLRTM
+     * executions in each of these subdirectores. and place the outputs (TAPE28 files) in
+     * the specified working directory with wavenumber range suffixes eg TAPE28_1, TAPE28_2
+     * etc.
+     *
+     */
+
     cpl_msg_info(cpl_func,"Calling ODA LBLRTM");
     cpl_error_code err=CPL_ERROR_NONE;
 
@@ -1188,32 +1209,41 @@ cpl_error_code mf_io_lblrtm_oda(mf_io_lnfl_config  *lnfl_config,
     int ncols=cpl_table_get_ncol(atm);
     cpl_msg_info(cpl_func,"Table Details nrows=%d, ncols=%d",nrows,ncols);
 
-    if(lnfl_config==NULL)   cpl_msg_info(cpl_func,"lnfl_config is NULL");
-    if(lblrtm_config==NULL) cpl_msg_info(cpl_func,"lblrtm_config is NULL");
+    if (lnfl_config==NULL)   cpl_msg_info(cpl_func,"lnfl_config is NULL");
+    if (lblrtm_config==NULL) cpl_msg_info(cpl_func,"lblrtm_config is NULL");
     if (params==NULL)       cpl_msg_info(cpl_func,"params is NULL");
 
     /* Molecule string */
+    /* We need to parse the molecule string to determine which molecules we
+     * are using and to be able to create strings relevent for simulatint
+     * single molecules only
+     */
     char *lbl_molecs = params->config->internal.molecules.lbl_molecs;
     int lbl_size=strlen(lbl_molecs);
+
+    /* Create a default all '0' molecule string */
     char zero_str[MF_MOLECULES_NUMBER_MAX+1];
     for (int i=0;i<MF_MOLECULES_NUMBER_MAX;i++) zero_str[i]='0';
     zero_str[MF_MOLECULES_NUMBER_MAX]='\0';
     cpl_msg_info(cpl_func,"molecular string = %s",lbl_molecs);
+
+    /* Convert the molecule string into an array of molecule names*/
     cpl_array* mol_array=mf_io_molecstring2Names(lbl_molecs);
     int nmols=cpl_array_get_size(mol_array);
 
-    /* Get number of ranges */
+    /* Get number of ranges that we are dealing with */
     int nrange = params->config->internal.n_range;
     cpl_msg_info(cpl_func,"Nranges=%d", nrange);
 
-    /* Create an nrange by nmols array placeholder for bivectors */
+    /* Create an nrange by nmols array placeholder for bivectors
+     * in which we will store the optical depth values.
+     */
     cpl_bivector* optical_depths[nrange][nmols];
     for (int range=0; range <nrange; range++) {
         for (int mol_idx=0;mol_idx<nmols;mol_idx++) {
             optical_depths[range][mol_idx]=NULL;
         }
     }
-
 
     /* Create Optical Depth working directory with molecule subdirectories   */
     char* od_dir = cpl_sprintf("%s/%s", params->config->internal.tmp_folder, "OpticalDepthsWorkDir");
@@ -1242,6 +1272,10 @@ cpl_error_code mf_io_lblrtm_oda(mf_io_lnfl_config  *lnfl_config,
         char*   lnfl_wdir=cpl_sprintf("%s/%s", mol_dir,"lnfl"  );
         mf_io_mkdir(  lnfl_wdir);
 
+        /* To leverage usage of mf_lblrtm_range_execution, we added an extra parameter
+         * oda_parameter which is a pointer to a structure that specifies the molecule
+         * string to use and the string names for the working directories
+         */
         mf_io_oda_parameters oda_parameter;
         oda_parameter.lbl_molecs  = zero_str;
         oda_parameter.lnfl_wdir   = lnfl_wdir;
@@ -1271,14 +1305,16 @@ cpl_error_code mf_io_lblrtm_oda(mf_io_lnfl_config  *lnfl_config,
             cpl_msg_info(cpl_func,"lnfl working dir for range %d = %s",range,w_dir_range);
             cpl_msg_info(cpl_func,"lnfl associa dir for range %d = %s",range,assoc_lnfl_dir);
             char* tape3_targ=cpl_sprintf("%s/%s",assoc_lnfl_dir,"TAPE3");
-            cpl_msg_info(cpl_func,"TAPE3 X targ=%s",tape3_targ);
             mf_io_oda_symlink(tape3_targ,tape3_dest);
             cpl_free(tape3_targ);
             cpl_free(tape3_dest);
             cpl_free(assoc_lnfl_dir);
             cpl_free(w_dir_range);
 
-            /* Call LBLRTM execution for ths range definition */
+            /* Call LBLRTM executions for ths range definition
+             * Note: there may be more than one execution as mf_lblrtm_range_execution
+             * and the outputs will be in one or more TAPE28 file that need to be merged.
+             */
             cpl_msg_info(cpl_func,"Attempt to call lblrtm from here");
             int lblrtm_calls=0;
             cpl_size run_execution=0;
@@ -1296,18 +1332,39 @@ cpl_error_code mf_io_lblrtm_oda(mf_io_lnfl_config  *lnfl_config,
                                                 &oda_parameter);
             cpl_msg_info(cpl_func,"Finished lblrtm with error %d",err);
 
-            /* Load the transmission data from LBLRTM's output TAPE28 file */
-            char * tape28=cpl_sprintf("%s/range_%d/%s",lblrtm_wdir,range+1,"TAPE28_1");
-            cpl_msg_info(cpl_func,"Attempting to read %s",tape28);
-            cpl_bivector* bvec = mf_io_read_lblrtm_spec(tape28);
-            cpl_free(tape28);
+            /* Load the transmission data from LBLRTM's output TAPE28 files */
+            char* range_dir=cpl_sprintf("%s/range_%d",lblrtm_wdir,range+1);
+            cpl_bivector* bvec = mf_io_merge_wavefiles(range_dir,"TAPE28");
+            cpl_free(range_dir);
             if (bvec==NULL) {
                 cpl_msg_info(cpl_func,"Failed to load bvec");
             } else {
                 optical_depths[range][mol_idx]=bvec;
                 int n=cpl_bivector_get_size(bvec);
-                cpl_msg_info(cpl_func,"Loaded %d numbers",n);
+                cpl_vector* x=cpl_bivector_get_x(bvec);
+                cpl_msg_info(cpl_func,"Loaded %d numbers [%f,%f]",n,cpl_vector_get(x,0),cpl_vector_get(x,n-1));
             }
+
+            char * tape28=cpl_sprintf("%s/range_%d/%s",lblrtm_wdir,range+1,"TAPE28_1");
+            cpl_msg_info(cpl_func,"Attempting to read %s",tape28);
+            cpl_bivector* bvec2 = mf_io_read_lblrtm_spec(tape28);
+            cpl_free(tape28);
+            if (bvec2==NULL) {
+                cpl_msg_info(cpl_func,"Failed to load bvec2");
+            }
+
+            FILE *stream;
+            stream=fopen("bvec0.dat","w");
+            cpl_bivector_dump(bvec,stream);
+            fclose(stream);
+            stream=fopen("bvec2.dat","w");
+            cpl_bivector_dump(bvec2,stream);
+            fclose(stream);
+            cpl_bivector_delete(bvec2);
+
+            /* Pause for debug*/
+            printf("Pausing\n");
+            getchar();
 
         }/* end of range loop*/
         cpl_free(oda_parameter.lnfl_wdir);
@@ -1347,7 +1404,7 @@ cpl_error_code mf_io_lblrtm_oda(mf_io_lnfl_config  *lnfl_config,
             cpl_bivector* old_bvec=optical_depths[range][mol_idx];
             int old_size=cpl_bivector_get_size(old_bvec);
 
-            /* Define a new bivector aswith the same axis as that of max_i*/
+            /* Define a new bivector as with the same axis as that of max_i*/
             cpl_vector* new_x=cpl_vector_new(max_n);
             cpl_vector* new_y=cpl_vector_new(max_n);
             for (int i=0;i<max_n;i++) cpl_vector_set(new_y,i,0.0);
