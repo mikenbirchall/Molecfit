@@ -1432,23 +1432,11 @@ cpl_vector* mf_io_molecule_abundancies(mf_parameters* params, cpl_array* fitpar)
 // -------------------------------
 
 /*
-int mf_io_oda_tableDB_old(int range, int molecule, double* vec, int m, cpl_boolean set_flag) {
+ * NOTE: MNB Hack For ODA Tables
+ * Use a single function to set or get specifc data from ODA Table database which
+ * are defined as static variables within this routine.
+ * Individual, set get and delete wrapper routines are defined around this
 
-    static double TABLE_LIST[2][11][100000];
-    static int    M_ROWS;
-
-
-    if (set_flag) {
-        for (int i=0;i<m;i++) {
-            TABLE_LIST[range][molecule][i]=vec[i];
-            M_ROWS=m;
-        }
-        return 0;
-    } else {
-        vec=TABLE_LIST[range][molecule];
-        return M_ROWS;
-    }
-}
 */
 
 cpl_matrix* mf_io_oda_tableDB(int range, int molecule, double* vec, int nrows, int nmols, int option) {
@@ -1502,6 +1490,7 @@ cpl_matrix* mf_io_oda_tableDB(int range, int molecule, double* vec, int nrows, i
     cpl_msg_info(cpl_func,"MNB ABOUT TO RETURN NULL");
     return NULL;
 }
+// -------------------------------------------------------------------
 
 void mf_io_oda_init_tableDB(int range, int nmols, int nrows) {
 
@@ -1511,6 +1500,7 @@ void mf_io_oda_init_tableDB(int range, int nmols, int nrows) {
     //cpl_matrix* ret;
     mf_io_oda_tableDB(range, 0, NULL, nrows, nmols, SET_DIMS);
 }
+// -------------------------------------------------------------------
 
 void mf_io_oda_set_tableDB(int range, int molecule, double *vec, int nrows) {
 
@@ -1520,6 +1510,7 @@ void mf_io_oda_set_tableDB(int range, int molecule, double *vec, int nrows) {
     //cpl_matrix* ret;
     mf_io_oda_tableDB(range, molecule, vec, nrows, 0, SET_VECTR);
 }
+// -------------------------------------------------------------------
 
 cpl_matrix*  mf_io_oda_get_tableDB(int range) {
 
@@ -1527,6 +1518,8 @@ cpl_matrix*  mf_io_oda_get_tableDB(int range) {
     ret=mf_io_oda_tableDB(range, 0, NULL, 0, 0, 0);
     return ret;
 }
+// -------------------------------------------------------------------
+
 
 cpl_array* mf_io_klim_from_odatable(int range) {
 
@@ -1545,12 +1538,19 @@ cpl_array* mf_io_klim_from_odatable(int range) {
     cpl_array_set(klim,1,v2);
     return klim;
 }
+// -------------------------------------------------------------------
 
 void mf_io_oda_delete_tableDB() {
     const int FREE_ALL  =3;
     cpl_msg_info(cpl_func,"About to free OD Tables");
     mf_io_oda_tableDB(0, 0, NULL, 0, 0, FREE_ALL);
 }
+
+// ===================================================================
+
+
+// Optical Depth Table Static Variables and Decleration routine
+
 static int  OpticalDepthTableNRanges=0;
 static int  OpticalDepthTableNMolecules=0;
 static char OpticalDepthMoleculeString[50];
@@ -1574,6 +1574,7 @@ void mf_io_DeclareOpticalDepthTable(int nrange, char* molec_string) {
     cpl_array_delete(moleculeNames);
 
 }
+// -------------------------------------------------------------------
 
 cpl_array* mf_io_molecstring2Names(char* molec_string) {
 
@@ -1607,7 +1608,9 @@ cpl_array* mf_io_molecstring2Names(char* molec_string) {
 
     return moleculeNames;
 
-}
+}/* end mf_io_molecstring2Names */
+// -------------------------------------------------------------------
+
 
 void mf_io_load_oda_table(int range,const char* lblrtm_out_filename) {
 
@@ -1702,7 +1705,9 @@ void mf_io_load_oda_table(int range,const char* lblrtm_out_filename) {
     cpl_free(prof_dir_path);
     cpl_array_delete(moleculeNames);
 
-}
+}/* mf_io_load_oda_table */
+// -------------------------------------------------------------------
+
 
 cpl_bivector* mf_io_mergeODTables(const int range, cpl_vector* mol_abuns, const char* lblrtm_out_filename) {
 
@@ -1784,7 +1789,9 @@ cpl_bivector* mf_io_mergeODTables(const int range, cpl_vector* mol_abuns, const 
 
     /* Return the calculated transmission as a bivector*/
     return(rbv);
-}
+
+}/* end mf_io_mergeODTables*/
+// -------------------------------------------------------------------
 
 cpl_boolean mf_io_use_odatable(void) {
 
@@ -1807,7 +1814,9 @@ cpl_boolean mf_io_use_odatable(void) {
 
     return return_flag;
 
-}
+}/* end mf_io_use_odatable */
+// -------------------------------------------------------------------
+
 
 cpl_boolean mf_io_use_stdlblrtm(void) {
 
@@ -1830,7 +1839,8 @@ cpl_boolean mf_io_use_stdlblrtm(void) {
 
     return return_flag;
 
-}
+}/* end mf_io_use_stdlblrtm */
+// -------------------------------------------------------------------
 
 
 cpl_bivector* mf_io_read_lblrtm_spec(
@@ -1900,7 +1910,9 @@ cpl_bivector* mf_io_read_lblrtm_spec(
     cpl_bivector* bvec=cpl_bivector_wrap_vectors(wv,fv);
 
     return bvec;
-}
+
+}/* end mf_io_read_lblrtm_spec*/
+// -------------------------------------------------------------------
 
 
 cpl_bivector* mf_io_merge_wavefiles(
@@ -2001,14 +2013,25 @@ cpl_bivector* mf_io_merge_wavefiles(
 
     return bivec_ret;
 
-}
+} /*end mf_io_merge_wavefiles*/
+// -------------------------------------------------------------------
 
 
 void mf_io_oda_symlink(char* target, char* destination) {
 
+    /* ========
+     * Purpose:
+     * ========
+     * It is late I am tired and I could not get the correct access
+     * status for mf_io_symlink to work in mf_lblrtm.c routines
+     * so I added an accesible wrapper here. (MNB)
+     */
+
     mf_io_symlink(target,destination);
 
-}
+}/* end mf_io_oda_symlink*/
+// -------------------------------------------------------------------
+
 // ------------------------
 // END OF MNB-ODA-INSERTION
 // ------------------------
