@@ -277,10 +277,6 @@ mf_model_results * mf_model(
         if (!(results->atm_profile_combined)) err = CPL_ERROR_UNSPECIFIED;
     }
 
-    /* Declare the number of ranges and the molecules being used for the Optical Depth Tables*/
-//    mf_io_DeclareOpticalDepthTable(params->config->internal.n_range,
-//                                   params->config->internal.molecules.lbl_molecs);
-
     /* Run LNFL */
     if (!err) err = mf_lnfl(config->lnfl, params);
 

@@ -1426,7 +1426,8 @@ cpl_vector* mf_io_molecule_abundancies(mf_parameters* params, cpl_array* fitpar)
 }
 
 
-
+// ===================================================================
+// ===================================================================
 // -------------------------------
 // BEGINNING OF MNB-ODA-INSERTION
 // -------------------------------
@@ -1545,36 +1546,10 @@ void mf_io_oda_delete_tableDB() {
     cpl_msg_info(cpl_func,"About to free OD Tables");
     mf_io_oda_tableDB(0, 0, NULL, 0, 0, FREE_ALL);
 }
-
+// -------------------------------------------------------------------
+/* END OF : MNB Hack For ODA Tables*/
 // ===================================================================
 
-
-// Optical Depth Table Static Variables and Decleration routine
-
-static int  OpticalDepthTableNRanges=0;
-static int  OpticalDepthTableNMolecules=0;
-static char OpticalDepthMoleculeString[50];
-
-void mf_io_DeclareOpticalDepthTable(int nrange, char* molec_string) {
-
-    cpl_msg_info(cpl_func,"Initialising Optical Depth Table for nranges=%d",nrange);
-    OpticalDepthTableNRanges=nrange;
-    strcpy(OpticalDepthMoleculeString,molec_string);
-
-    /* Create a molecule table that lists molecule name strings per idx */
-    cpl_array *moleculeNames=mf_io_molecstring2Names(molec_string);
-    int nmols=cpl_array_get_size(moleculeNames);
-    OpticalDepthTableNMolecules=nmols;
-    for (int i=0;i<nmols;i++) {
-        const char* moleculeName=cpl_array_get_string(moleculeNames,i);
-        cpl_msg_info(cpl_func, "Adding molecule %s to the Optical Depth Table list",moleculeName);
-    }
-
-    /* Clean up the molecule table */
-    cpl_array_delete(moleculeNames);
-
-}
-// -------------------------------------------------------------------
 
 cpl_array* mf_io_molecstring2Names(char* molec_string) {
 
@@ -1609,103 +1584,6 @@ cpl_array* mf_io_molecstring2Names(char* molec_string) {
     return moleculeNames;
 
 }/* end mf_io_molecstring2Names */
-// -------------------------------------------------------------------
-
-
-void mf_io_load_oda_table(int range,const char* lblrtm_out_filename) {
-
-    /* ========
-     * Purpose:
-     * ========
-     * Load Up the ODA data stored in bivec.dat files in the INDIVIDUAL_MOLECULE_PROFS
-     * directory into the TableDB in memory database
-     * Something of a hack. We use the full pathname of the "lblrtm_out_filename" which
-     * will be in the form dirpath/TAPE28_? to locate file dirpath/wave_nuber_0/TAPE3,
-     * which is a softlink to otherdirpath/TAPE3. INDIVIDUAL_MOLECULE_PROFS directory
-     * full path should be otherdirpath/INDIVIDUAL_MOLECULE_PROFS.
-     * In the INDIVIDUAL_MOLECULE_PROFS will be moecule subdirectores each of which
-     * will contain an ascii bivector data file designed to be read in via cpl_bivector_read()
-    */
-
-    /* Parse the lblrtm_filename (assumed to be of form dipath/TAPE28_1 and find TAPE3*/
-    size_t n=strlen(lblrtm_out_filename);
-    char path[n+1];
-    strncpy(path,lblrtm_out_filename,n-9);
-    path[n-9]='\0';
-    char *tape3file = cpl_sprintf("%s/wv_number_0/TAPE3", path);
-
-    /* Get the realpathname to softlinked TAPE3 */
-    char rpath[PATH_MAX];
-    char* res=realpath(tape3file,rpath);
-    if (!res) {
-        cpl_msg_info(cpl_func,"Problems locating the REAL_PATH of %s",tape3file);
-        cpl_free(res);
-        cpl_free(tape3file);
-        return;
-    }
-
-    /* Find the INDIVIDUAL_MOLECULE_PROFS direcory in relation to TAPE3 */
-    n=strlen(rpath)-strlen("TAPE3");
-    char prof_dir[PATH_MAX];
-    for (size_t i=0; i<n; i++) prof_dir[i]=rpath[i];
-    prof_dir[n]='\0';
-    char* prof_dir_path = cpl_sprintf("%s/INDIVIDUAL_MOLECULE_PROFS", prof_dir);
-
-    cpl_msg_info(cpl_func,"Loading Individual Molecule Optical Depth Profiles from %s",prof_dir);
-
-    /* Iterate through each molecule soecified in the molecule string */
-    cpl_error_code file_error;
-    cpl_array *moleculeNames=mf_io_molecstring2Names(OpticalDepthMoleculeString);
-    int nmols=cpl_array_get_size(moleculeNames);
-    int NCOLS=nmols+1;
-    int WAVNUM_COLUMN_idx=0;
-    cpl_msg_info(cpl_func, "Listing WAVENUMBER as the %dth column",WAVNUM_COLUMN_idx);
-    for (int i=0;i<nmols;i++) {
-        int column_idx=i+1;
-        const char* moleculeName=cpl_array_get_string(moleculeNames,i);
-        cpl_msg_info(cpl_func, "Listing molecule %s OD values for column %d",moleculeName,column_idx);
-        char* dirMOL  = cpl_sprintf("%s/%s", prof_dir_path,moleculeName);
-        char* fileMOL = cpl_sprintf("%s/BIVEC.dat", dirMOL);
-        file_error=mf_io_access(fileMOL);
-        if (file_error) {
-            cpl_msg_info(cpl_func,"Cannot find file %s",fileMOL);
-            cpl_free(dirMOL);
-            cpl_free(fileMOL);
-        } else {
-            cpl_msg_info(cpl_func,"Found file %s",fileMOL);
-        }
-
-        /* Hack exit for cannot find files so die as nothing can be done */
-        if (file_error) return;
-
-        /* Read in the bivector for this molecule*/
-        /* Note at this stage we assume that the wavenumber axis is the same for all */
-        cpl_bivector* bvec= cpl_bivector_read(fileMOL);
-        cpl_free(fileMOL);
-        cpl_free(dirMOL);
-        int m=cpl_bivector_get_size(bvec);
-        cpl_msg_info(cpl_func,"Loaded up %d optical depth values for %s", m, moleculeName);
-        double* x=cpl_bivector_get_x_data(bvec);
-        double* y=cpl_bivector_get_y_data(bvec);
-        if (i==0) {
-            /* Allocate the in memory Optical Depth Table size for this range*/
-            mf_io_oda_init_tableDB(range,NCOLS,m);
-            /* Store the wavenumber values as the 0th column*/
-            mf_io_oda_set_tableDB(range,WAVNUM_COLUMN_idx,x, m);
-        }
-        /*Load up the optical depth values for the column assigned to this moleculoe*/
-        mf_io_oda_set_tableDB(range,column_idx,y,m);
-        cpl_bivector_delete(bvec);
-
-    }
-
-    /* Cleanup */
-    cpl_free(res);
-    cpl_free(tape3file);
-    cpl_free(prof_dir_path);
-    cpl_array_delete(moleculeNames);
-
-}/* mf_io_load_oda_table */
 // -------------------------------------------------------------------
 
 
@@ -2035,6 +1913,8 @@ void mf_io_oda_symlink(char* target, char* destination) {
 // ------------------------
 // END OF MNB-ODA-INSERTION
 // ------------------------
+// ===================================================================
+// ===================================================================
 
 /** @cond PRIVATE */
 
