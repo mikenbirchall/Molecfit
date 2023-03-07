@@ -58,16 +58,16 @@ def SysCall(cmd_str):
 print("lnflOda ODA_OPTION=", ODA_OPTION)
 
 # Check if option is to run the default method
-if (ODA_OPTION=="NONE" or ODA_OPTION=="STD" or ODA_OPTION=="BOTH"):
+if (ODA_OPTION=="BOTH"):
     cmd_str=LNFL_BIN
     print("Running Standard:", cmd_str)
     os.system(cmd_str)
 #    shutil.copyfile(TAPE3_FILENAME,'TAPE3_BACKUP')
 
 # Check if option is to run the Oda method
-if (ODA_OPTION!="ODA" and ODA_OPTION!="BOTH" and ODA_OPTION!="BOTH2"):
-    # No request to run ODA so exist
-    sys.exit()
+#if (ODA_OPTION!="ODA" and ODA_OPTION!="BOTH" and ODA_OPTION!="BOTH2"):
+#    # No request to run ODA so exist
+#    sys.exit()
 
 
 # If the output directory already exists then remove it

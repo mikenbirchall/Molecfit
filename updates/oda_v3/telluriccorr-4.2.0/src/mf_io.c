@@ -1683,12 +1683,36 @@ cpl_boolean mf_io_use_odatable(void) {
     /* Read the ODA_OPTION env var */
     char* oda_option=getenv("ODA_OPTION");
 
-    if (oda_option==NULL) return CPL_FALSE;
+    /*if (oda_option==NULL) return CPL_FALSE;*/
+    if (oda_option==NULL) return CPL_TRUE;
 
     cpl_boolean return_flag=CPL_TRUE;
-    if (strcmp(oda_option,"STD"  )==0) return_flag=CPL_FALSE;
+    if (strcmp(oda_option,"STD"  )==0) return_flag=CPL_TRUE;
     if (strcmp(oda_option,"BOTH" )==0) return_flag=CPL_FALSE;
-    if (strcmp(oda_option,"BOTH2")==0) return_flag=CPL_TRUE;
+    if (strcmp(oda_option,"DEBUG")==0) return_flag=CPL_TRUE;
+
+    return return_flag;
+
+}/* end mf_io_use_odatable */
+// -------------------------------------------------------------------
+
+
+cpl_boolean mf_io_use_debug(void) {
+
+    /* Hack routine to return a flag based on the existance/value of
+     * env var ODA_OPTION.
+     * If env var does not exist return false
+     * If env var exists and has value "STD" return false.
+     * Otherwise return true.
+     */
+
+    /* Read the ODA_OPTION env var */
+    char* oda_option=getenv("ODA_OPTION");
+
+    if (oda_option==NULL) return CPL_FALSE;
+
+    cpl_boolean return_flag=CPL_FALSE;
+    if (strcmp(oda_option,"DEBUG")==0) return_flag=CPL_TRUE;
 
     return return_flag;
 
@@ -1708,12 +1732,13 @@ cpl_boolean mf_io_use_stdlblrtm(void) {
     /* Read the ODA_OPTION env var */
     char* oda_option=getenv("ODA_OPTION");
 
-    if (oda_option==NULL) return CPL_TRUE;
+    if (oda_option==NULL) return CPL_FALSE;
 
-    cpl_boolean return_flag=CPL_TRUE;
-    if (strcmp(oda_option,"STD"  )==0) return_flag=CPL_TRUE;
+
+    cpl_boolean return_flag=CPL_FALSE;
+    if (strcmp(oda_option,"STD"  )==0) return_flag=CPL_FALSE;
     if (strcmp(oda_option,"BOTH" )==0) return_flag=CPL_TRUE;
-    if (strcmp(oda_option,"BOTH2")==0) return_flag=CPL_FALSE;
+    if (strcmp(oda_option,"DEBUG")==0) return_flag=CPL_FALSE;
 
     return return_flag;
 

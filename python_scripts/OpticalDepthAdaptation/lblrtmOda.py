@@ -31,9 +31,9 @@ if (ODA_OPTION=="NONE" or ODA_OPTION=="STD" or ODA_OPTION=="BOTH" or ODA_OPTION=
     et=time.time()
     print("LBLRTM exec Time=", 1000*(et-st), "ms")
 # Check if option is to run the Oda method. If not then exit
-if (ODA_OPTION!="ODA" and ODA_OPTION!="BOTH" and ODA_OPTION!="BOTH2"):
-    # No request to run ODA so exist
-    sys.exit()
+#if (ODA_OPTION!="ODA" and ODA_OPTION!="BOTH" and ODA_OPTION!="BOTH2"):
+#    # No request to run ODA so exist
+#    sys.exit()
 
 # Check if the Molecular Profile Exists and if not then  create it with mbmOda
 if (not mbmOdaHasBeenInvoked):

@@ -104,6 +104,9 @@ static cpl_error_code mf_lblrtm_linear_interpolate_spectrum(
     const cpl_size           lim_min,
     const cpl_size           lim_max);
 
+/* Break up a single range into a LBLRTM valid set of wavenumber subranges */
+static cpl_vector* wavenumber_subranges(double nu1,double nu2);
+
 /*----------------------------------------------------------------------------*/
 /**
  *                 Functions
@@ -630,10 +633,11 @@ static cpl_error_code mf_lblrtm_range_execution(
                 double   max_wn  = min_wn;
                 for (cpl_size j = 0; min_wn > wn1[range]; j++) {
 
-                    double delta = 0.14 * pow(max_wn, 1.1);
+                    double delta = MF_LBLRTM_DELTA_FACTOR * pow(max_wn, MF_LBLRTM_DELTA_TOL);
+
                     if (delta > MF_LBLRTM_DELTA_MAX) delta = MF_LBLRTM_DELTA_MAX;
                     if (delta < MF_LBLRTM_DELTA_MIN) delta = MF_LBLRTM_DELTA_MIN;
-
+                    //MNB-delta=delta/40;
                     min_wn = CPL_MAX(max_wn - delta, wn1[range]);
                     max_wn = min_wn;
 
@@ -650,6 +654,14 @@ static cpl_error_code mf_lblrtm_range_execution(
                                                 "LBLRTM variable delta too big (|%g - %g| = %g) => |maxc - minc| > %g cm-1",
                                                 maxc_config, minc_config, fabs(maxc_config - minc_config), MF_LBLRTM_DELTA_ABS);
                 }
+
+                /* In case the wavenumber range is too large for LBLRTM, break it up
+                 * into smaller subranges */
+                cpl_msg_info(cpl_func,"MNBXWaveNumber nu1=%f nu2=%f",wn1[range],wn2[range]);
+                cpl_vector* end_points=wavenumber_subranges(wn1[range],wn2[range]);
+                int npts=cpl_vector_get_size(end_points);
+                cpl_msg_info(cpl_func,"MNBXWaveNumber Subranges = %d",npts);
+                cpl_vector_delete(end_points);
 
                 double     vbar        = (minc_config + maxc_config) / 2.;
                 double     angle       = 90. - params->config->ambient.telescope_angle.value;
@@ -686,14 +698,16 @@ static cpl_error_code mf_lblrtm_range_execution(
                         double delta = MF_LBLRTM_DELTA_FACTOR * pow(max_wn_local, MF_LBLRTM_DELTA_TOL);
                         if (delta > MF_LBLRTM_DELTA_MAX) delta = MF_LBLRTM_DELTA_MAX;
                         if (delta < MF_LBLRTM_DELTA_MIN) delta = MF_LBLRTM_DELTA_MIN;
+                        //delta=delta/40;
+                        cpl_msg_info(cpl_func,"MARBEL-> [%f,%f],[%f,%f],wn_jmax=%lld,delat=%f",wn1[range],wn2[range],min_wn_local,max_wn_local,wn_jmax,delta);
 
                         min_wn_local = CPL_MAX(max_wn_local - delta, wn1[range]);
 
                         if (wavenumber == wn_jmax) maxc = max_wn_local;
-                        else                       maxc = max_wn_local + MF_EXTRA_WN_COVERAGE;
+                        else                       maxc = max_wn_local + 1; // MF_EXTRA_WN_COVERAGE;
 
                         if (wavenumber == 0      ) minc = min_wn_local;
-                        else                       minc = min_wn_local - MF_EXTRA_WN_COVERAGE;
+                        else                       minc = min_wn_local - 1; //- MF_EXTRA_WN_COVERAGE;
 
                         /* Update for the next loop */
                         max_wn_local = min_wn_local;
@@ -1202,6 +1216,7 @@ cpl_error_code mf_io_lblrtm_oda(mf_io_lnfl_config  *lnfl_config,
      */
 
     cpl_msg_info(cpl_func,"Calling ODA LBLRTM");
+    cpl_boolean debug = mf_io_use_debug();
     cpl_error_code err=CPL_ERROR_NONE;
 
 
@@ -1363,8 +1378,10 @@ cpl_error_code mf_io_lblrtm_oda(mf_io_lnfl_config  *lnfl_config,
             cpl_bivector_delete(bvec2);
 
             /* Pause for debug*/
-            printf("Pausing\n");
-            getchar();
+            if (debug) {
+                printf("Pausing for debug purposes\n");
+                getchar();
+            }
 
         }/* end of range loop*/
         cpl_free(oda_parameter.lnfl_wdir);
@@ -1531,7 +1548,112 @@ cpl_error_code mf_io_lblrtm_oda(mf_io_lnfl_config  *lnfl_config,
     return CPL_ERROR_NONE;
 }
 
+cpl_vector* wavenumber_subranges(double nu1,double nu2) {
 
+    /* COMMENTS:
+    LBLRTM uses a single wave number value for refractive calculation.
+    This value is usually chosen to be the mid point of the range.
+    However, this single value approximation becomes poor if the the
+    wave number range for simulatiom is too large. That is, for a wave
+    number range, [ν1,ν2] , the range is too large if:
+
+        v2 – v1 > delta
+
+    where
+
+        delta = 0.14 x (v2)^1.1
+
+    and delta is clamped between [125.0,1750.0] cm-1;
+
+    (NOTE: these numbers are stored as macros)
+
+    Under these circumstances, the wave range has to be broken up into
+    n sub-ranges (with that do not violate this rule, i.e:
+
+    [vb0,vb1] , [vb1,vb2], [vb2,vb3], ..., [vbi-1,vbi], ... , [vbn-1,vbn]
+
+    The puprose of this routine is to break down a supplied range
+    [nu1,nu2] as specified above and to return a vector of calculated
+    end points such that the first value is nu1 and the last is nu2.
+
+
+    */
+
+    /* Derive an minumum estimate of the DELTA factor */
+    double min_delta = MF_LBLRTM_DELTA_FACTOR *
+                       pow(nu1, MF_LBLRTM_DELTA_TOL);
+    if (min_delta>MF_LBLRTM_DELTA_MAX) min_delta=MF_LBLRTM_DELTA_MAX;
+    if (min_delta<MF_LBLRTM_DELTA_MIN) min_delta=MF_LBLRTM_DELTA_MIN;
+
+
+    /* Derive a maximum number for subranges required within [nu1,nu2]
+       i.e. how many times will min_delta fit in the range [nu1,nu2]
+    */
+    int max_n = ceil((nu2-nu1)/min_delta);
+
+    /* Allocate a buffer vector to store new end points */
+    cpl_vector* buffer = cpl_vector_new(max_n);
+
+    /* Define the first end point in the buffer as nu2 */
+    cpl_size stack_idx=0;
+    cpl_vector_set(buffer,stack_idx,nu2);
+
+    /* Iterate calculating subranges [mu1,mu2] that satisfy the range
+       criteria */
+    for (cpl_size i=1;i<max_n; i++) {
+
+        /* Get upper range mu2 from the last value pushed in the
+           buffer stack
+        */
+        double mu2=cpl_vector_get(buffer,i-1);
+
+        /* Define the maximum valid range for [mu1,mu2] */
+        double delta = MF_LBLRTM_DELTA_FACTOR *
+                       pow(mu2, MF_LBLRTM_DELTA_TOL);
+        if (delta > MF_LBLRTM_DELTA_MAX) delta = MF_LBLRTM_DELTA_MAX;
+        if (delta < MF_LBLRTM_DELTA_MIN) delta = MF_LBLRTM_DELTA_MIN;
+
+        /* Use delta to estimate mu1 */
+        double mu1 = mu2-delta;
+
+        /* If mu1 is greater than nu1 then add mu1 to the stack otherwise
+           break as we are outside of the range [nu1,nu2] */
+        if (mu1>nu1) {
+            /* Push this value to the stack */
+            cpl_vector_set(buffer,++stack_idx, mu1);
+        } else {
+            break;
+        }
+    } /* end for i */
+
+    /*
+     Required return vector is the sequence of values: nu1 and then
+     the values popped from the buffer.
+    */
+
+    /* Allocate the size for the return vector */
+    cpl_vector *retv = cpl_vector_new(stack_idx+1);
+
+    /* Put nu1 as the first value */
+    cpl_size i=0;
+    cpl_vector_set(retv,i,nu1);
+
+    /* Iterate through the stack elements */
+    while (stack_idx>0) {
+
+        /* Pop value from stack */
+        double nu=cpl_vector_get(buffer,stack_idx--);
+
+        /* Add value to the return vector */
+        cpl_vector_set(retv,++i,nu);
+    }
+
+    /* Cleanup */
+    cpl_vector_delete(buffer);
+
+    return retv;
+
+}
 
 /** @endcond */
 

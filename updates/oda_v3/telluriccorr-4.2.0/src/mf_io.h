@@ -254,7 +254,8 @@ cpl_bivector* mf_io_merge_wavefiles(const char* w_dir,const char* filename);
 void          mf_io_DeclareOpticalDepthTable(int nrange, char* molec_string);
 cpl_array*    mf_io_molecstring2Names(char* molec_str);
 cpl_boolean   mf_io_use_odatable(void);
-cpl_boolean  mf_io_use_stdlblrtm(void);
+cpl_boolean   mf_io_use_stdlblrtm(void);
+cpl_boolean   mf_io_use_debug(void);
 void          mf_io_oda_symlink(char* target, char* destination);
 CPL_END_DECLS
 
