@@ -1201,15 +1201,15 @@ cpl_error_code mf_io_lblrtm_oda(mf_io_lnfl_config  *lnfl_config,
      * Generating and loading into memory the ODa tables needed for the ODa process.
      *
      * LBLRTM has to be executed for individual molecule profiles, i.e. TAPE5 has to be
-     * generated for each molecule the relevant TAPE3 associated with that molecule has
-     * to be soft linked and the trasmission data has to be obtained from the output
+     * generated for each molecule; the relevant TAPE3 associated with that molecule has
+     * to be soft linked; and the trasmission data has to be obtained from the output
      * TAPE28 files for each molecule.
      * As much usage as possible is made from mf_lblrtm_range_execution to prep and call
      * LBLRTM.
      * Note:
      * mf_lblrtm_range_execution may decide that wavenumber range is too long and needs
-     * breaking down into several subregionsm wavenumber_0,wavenumber_1 etc and call LBLRTM
-     * executions in each of these subdirectores. and place the outputs (TAPE28 files) in
+     * breaking down into several subregions: wavenumber_0,wavenumber_1 etc and call LBLRTM
+     * executions in each of these subdirectores and place the outputs (TAPE28 files) in
      * the specified working directory with wavenumber range suffixes eg TAPE28_1, TAPE28_2
      * etc.
      *
@@ -1226,7 +1226,7 @@ cpl_error_code mf_io_lblrtm_oda(mf_io_lnfl_config  *lnfl_config,
 
     if (lnfl_config==NULL)   cpl_msg_info(cpl_func,"lnfl_config is NULL");
     if (lblrtm_config==NULL) cpl_msg_info(cpl_func,"lblrtm_config is NULL");
-    if (params==NULL)       cpl_msg_info(cpl_func,"params is NULL");
+    if (params==NULL)        cpl_msg_info(cpl_func,"params is NULL");
 
     /* Molecule string */
     /* We need to parse the molecule string to determine which molecules we
@@ -1260,8 +1260,10 @@ cpl_error_code mf_io_lblrtm_oda(mf_io_lnfl_config  *lnfl_config,
         }
     }
 
-    /* Create Optical Depth working directory with molecule subdirectories   */
-    char* od_dir = cpl_sprintf("%s/%s", params->config->internal.tmp_folder, "OpticalDepthsWorkDir");
+    /*Create Optical Depth working directory with molecule subdirectories*/
+    char* od_dir = cpl_sprintf("%s/%s",
+                               params->config->internal.tmp_folder,
+                               "OpticalDepthsWorkDir");
     mf_io_mkdir(od_dir);
     for (int mol_idx=0;mol_idx<nmols;mol_idx++) {
 
@@ -1317,9 +1319,12 @@ cpl_error_code mf_io_lblrtm_oda(mf_io_lnfl_config  *lnfl_config,
                                              MF_AER_WDIR_LNFL_RANGE_PATH,
                                              range+1,mol_name);
 
-            cpl_msg_info(cpl_func,"lnfl working dir for range %d = %s",range,w_dir_range);
-            cpl_msg_info(cpl_func,"lnfl associa dir for range %d = %s",range,assoc_lnfl_dir);
-            char* tape3_targ=cpl_sprintf("%s/%s",assoc_lnfl_dir,"TAPE3");
+            cpl_msg_info(cpl_func,"lnfl working dir for range %d = %s",
+                                                     range,w_dir_range);
+            cpl_msg_info(cpl_func,"lnfl associa dir for range %d = %s",
+                                                  range,assoc_lnfl_dir);
+            char* tape3_targ=cpl_sprintf("%s/%s",assoc_lnfl_dir,
+                                                               "TAPE3");
             mf_io_oda_symlink(tape3_targ,tape3_dest);
             cpl_free(tape3_targ);
             cpl_free(tape3_dest);
@@ -1357,10 +1362,12 @@ cpl_error_code mf_io_lblrtm_oda(mf_io_lnfl_config  *lnfl_config,
                 optical_depths[range][mol_idx]=bvec;
                 int n=cpl_bivector_get_size(bvec);
                 cpl_vector* x=cpl_bivector_get_x(bvec);
-                cpl_msg_info(cpl_func,"Loaded %d numbers [%f,%f]",n,cpl_vector_get(x,0),cpl_vector_get(x,n-1));
+                cpl_msg_info(cpl_func,"Loaded %d numbers [%f,%f]",n,
+                             cpl_vector_get(x,0),cpl_vector_get(x,n-1));
             }
 
-            char * tape28=cpl_sprintf("%s/range_%d/%s",lblrtm_wdir,range+1,"TAPE28_1");
+            char * tape28=cpl_sprintf("%s/range_%d/%s",lblrtm_wdir,
+                                      range+1,"TAPE28_1");
             cpl_msg_info(cpl_func,"Attempting to read %s",tape28);
             cpl_bivector* bvec2 = mf_io_read_lblrtm_spec(tape28);
             cpl_free(tape28);
@@ -1482,8 +1489,6 @@ cpl_error_code mf_io_lblrtm_oda(mf_io_lnfl_config  *lnfl_config,
                 cpl_msg_info(cpl_func,"i=%d x=%f y=%f ->  x=%f y=%f",i,xval,yval,xval2,yval2);
             }
 
-
-
             /* Replace the old bivec in the optical_depths table with the new*/
             optical_depths[range][mol_idx]=new_bvec;
             cpl_msg_info(cpl_func,"Replaced old bivector for new for %d",mol_idx);
@@ -1568,15 +1573,13 @@ cpl_vector* wavenumber_subranges(double nu1,double nu2) {
     (NOTE: these numbers are stored as macros)
 
     Under these circumstances, the wave range has to be broken up into
-    n sub-ranges (with that do not violate this rule, i.e:
+    n sub-ranges that do not violate this rule, i.e:
 
     [vb0,vb1] , [vb1,vb2], [vb2,vb3], ..., [vbi-1,vbi], ... , [vbn-1,vbn]
 
     The puprose of this routine is to break down a supplied range
     [nu1,nu2] as specified above and to return a vector of calculated
     end points such that the first value is nu1 and the last is nu2.
-
-
     */
 
     /* Derive an minumum estimate of the DELTA factor */
@@ -1599,11 +1602,12 @@ cpl_vector* wavenumber_subranges(double nu1,double nu2) {
     cpl_vector_set(buffer,stack_idx,nu2);
 
     /* Iterate calculating subranges [mu1,mu2] that satisfy the range
-       criteria */
+     * criteria.
+    */
     for (cpl_size i=1;i<max_n; i++) {
 
         /* Get upper range mu2 from the last value pushed in the
-           buffer stack
+         * buffer stack
         */
         double mu2=cpl_vector_get(buffer,i-1);
 
@@ -1617,7 +1621,7 @@ cpl_vector* wavenumber_subranges(double nu1,double nu2) {
         double mu1 = mu2-delta;
 
         /* If mu1 is greater than nu1 then add mu1 to the stack otherwise
-           break as we are outside of the range [nu1,nu2] */
+           break from loop as we are outside of the range [nu1,nu2] */
         if (mu1>nu1) {
             /* Push this value to the stack */
             cpl_vector_set(buffer,++stack_idx, mu1);
