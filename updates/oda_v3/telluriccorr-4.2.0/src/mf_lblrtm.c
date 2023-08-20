@@ -1249,6 +1249,11 @@ cpl_error_code mf_io_lblrtm_oda(mf_io_lnfl_config  *lnfl_config,
     /* Get number of ranges that we are dealing with */
     int nrange = params->config->internal.n_range;
     cpl_msg_info(cpl_func,"Nranges=%d", nrange);
+    if (params->config->internal.single_spectrum) {
+        cpl_msg_info(cpl_func,"=========<SINGLE SPECTRUM IS TRUE>=======");
+        cpl_msg_info(cpl_func,"Nranges=%d", nrange);
+        nrange = 1;
+    }
 
     /* Create an nrange by nmols array placeholder for bivectors
      * in which we will store the optical depth values.
@@ -1453,9 +1458,9 @@ cpl_error_code mf_io_lblrtm_oda(mf_io_lnfl_config  *lnfl_config,
             }
             cpl_msg_info(cpl_func,"compare max axes %f %f",ref_axis_max,old_axis_max);
             if (ref_axis_max>old_axis_max) {
-                cpl_msg_info(cpl_func,"Expect error because ref_axis_max>old_axis_max ie %f < %f",ref_axis_max,old_axis_max);
+                cpl_msg_info(cpl_func,"Expect error because ref_axis_max>old_axis_max ie %f > %f",ref_axis_max,old_axis_max);
                 cpl_msg_info(cpl_func,"Changeing old axis max");
-                cpl_vector_set(old_x,old_n,ref_axis_max);
+                cpl_vector_set(old_x,old_n-1,ref_axis_max);
             }
 
             for (int i=0;i<5;i++) {
@@ -1472,6 +1477,10 @@ cpl_error_code mf_io_lblrtm_oda(mf_io_lnfl_config  *lnfl_config,
             cpl_msg_info(cpl_func,"Rebinned new bivector for %d err=%d",mol_idx,err);
             if (err) {
                 cpl_msg_info(cpl_func,"Rebinned Error err=%d",err);
+                cpl_msg_info(cpl_func,"CPL_ERROR_NULL_INPUT=%d",CPL_ERROR_NULL_INPUT);
+                cpl_msg_info(cpl_func,"CPL_ERROR_DATA_NOT_FOUND=%d",CPL_ERROR_DATA_NOT_FOUND);
+                cpl_msg_info(cpl_func,"CPL_ERROR_ILLEGAL_INPUT=%d",CPL_ERROR_ILLEGAL_INPUT);
+
                // cpl_error_reset();
                 if (old_bvec==NULL) {
                     cpl_msg_info(cpl_func,"old bvec=NULL");
