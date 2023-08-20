@@ -31,7 +31,8 @@ UPDATES=continuum_parameters
 UPDATES_DIR=updates/$(UPDATES)
 
 what:
-	@echo "    all          ---> Builds for standard kit"
+	@echo "    all          ---> Builds Molecfit based on standard kit and updated with default ODA version"
+	@echo "    base         ---> Builds base Molecfit from standard kit (no upddates added)"
 	@echo "    updates      ---> Updates standard kit source code from specifc update, eg, make updates UPDATES=continuum_parameters"
 	@echo "    rebuild      ---> Rebuilds, eg after updated changes"
 	@echo "    rebuildwgsl  ---> Rebuilds with the wgsl mod and the gsl library. Note gsl library must be built first"
@@ -52,12 +53,23 @@ what:
 	@echo "    gslib        ---> Adds, builds and installs the GNU Scientific library to the install directory"
 	@echo "    lmods        ---> List all update mods available to build with"
 
-all: decompress cfitsio fftw wcslib cpl esorex third_party telluriccorr molecfit scripts lblrtmio
 
-allwgsl: all
+all: alloda
+
+base: decompress cfitsio fftw wcslib cpl esorex third_party telluriccorr molecfit
+
+kitver:
+	make base IDR=${PWD}/install-${molecfit-kit-ver}
+
+allwgsl: base
 	make gslib
 	make updates UPDATES=wgsl
 	make rebuildwgsl
+
+alloda: distclean base
+	make updates UPDATES=oda_v3
+	make rebuild
+	make python_scripts
 
 tarball:
 	make $(tarball)
@@ -170,8 +182,8 @@ distclean: clean_scripts cleaninstall
 	cd $(cpl_dir);     if [ -e Makefile ] ; then make distclean ; fi
 
 cleaninstall:
-	rm -rdf install
-	mkdir install
+	rm -rdf $(IDR)
+	mkdir $(IDR)
 
 cleankit:
 	rm -rdf $(molecfit-kit-ver)
