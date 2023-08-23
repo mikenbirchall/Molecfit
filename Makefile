@@ -66,7 +66,9 @@ allwgsl: base
 	make updates UPDATES=wgsl
 	make rebuildwgsl
 
-alloda: distclean base
+alloda: base oda
+
+oda:
 	make updates UPDATES=oda_v3
 	make rebuild
 	make python_scripts
