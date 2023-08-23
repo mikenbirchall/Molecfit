@@ -74,7 +74,9 @@ oda:
 	make python_scripts
 
 tarball:
-	make $(tarball)
+	# If no tarball then make (fetch) one
+	if [ ! -e $(tarball) ] ; then make $(tarball); fi
+
 
 $(tarball):
 	curl $(tarball_url)/$(tarball) -o $(tarball)
