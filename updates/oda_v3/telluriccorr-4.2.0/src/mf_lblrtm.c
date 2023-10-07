@@ -468,8 +468,18 @@ static cpl_error_code mf_lblrtm_molecular_correct_atm(
     /* Get number of molecules in driver parameter structure */
     int nmolec = params->config->internal.molecules.n_molec;
 
+
     /* Get pointer to names of molecules in driver parameter structure */
     char **mol = cpl_table_get_data_string(params->molectab, MF_COL_LIST_MOLECULES);
+
+    cpl_msg_info(cpl_func,"MOELCUL STRING==========");
+    cpl_msg_info(cpl_func,"STRING=%s",mol[0]);
+    cpl_msg_info(cpl_func,"STRING=%s",mol[1]);
+    cpl_vector *mol_idxv=mf_oda_mol_idx(mol,nmolec);
+    if (mol_idxv) {
+        cpl_msg_info(cpl_func,"moll_idxv is ok");
+        cpl_vector_delete(mol_idxv);
+    }
 
     /* Get pointer to CPL array with fit parameters */
     const double *par = cpl_array_get_data_double_const(fitpar);

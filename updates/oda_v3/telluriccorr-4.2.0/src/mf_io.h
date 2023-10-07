@@ -55,6 +55,8 @@ CPL_BEGIN_DECLS
 #define MF_IO_TMP_FOLDER_INIT          MF_IO_TMP_FOLDER_TEMPLATE"_XXXXXX"       /* The string "_XXXXXX" is part mandatory for mktemp(...)          */
 #define MF_IO_TMP_FOLDER_MAX_ATTEMPTS  10                                       /* Number of attempts to create the TMP Telluric Correction folder */
 #define MF_IO_ODA_PROFILE_DIR          "INDIVIDUAL_MOLECULE_PROFS"              /* Name of directory containing the optical depth profiles for each mol*/
+#define ODA_MAX_MOL_IDX 50                                                      /* Fix the langth of the number of molecul indecies that have to be permutated*/
+
 /*----------------------------------------------------------------------------*/
 /**
  *                 Global variables
@@ -256,6 +258,7 @@ cpl_array*    mf_io_molecstring2Names(char* molec_str);
 cpl_boolean   mf_io_use_odatable(void);
 cpl_boolean   mf_io_use_stdlblrtm(void);
 cpl_boolean   mf_io_use_debug(void);
+cpl_vector*   mf_oda_mol_idx(char** mol, int nmol);
 void          mf_io_oda_symlink(char* target, char* destination);
 CPL_END_DECLS
 

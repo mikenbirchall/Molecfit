@@ -1586,6 +1586,8 @@ cpl_array* mf_io_molecstring2Names(char* molec_string) {
 }/* end mf_io_molecstring2Names */
 // -------------------------------------------------------------------
 
+int oda_mol_paramidx2tableidxV[ODA_MAX_MOL_IDX]; /* Permutation Vector from mol idx in parameter list to the official mol id list*/
+
 
 cpl_bivector* mf_io_mergeODTables(const int range, cpl_vector* mol_abuns, const char* lblrtm_out_filename) {
 
@@ -1605,6 +1607,7 @@ cpl_bivector* mf_io_mergeODTables(const int range, cpl_vector* mol_abuns, const 
 
     //cpl_boolean GEN_HYBRID=CPL_FALSE;
     cpl_boolean GEN_HYBRID=CPL_FALSE;
+    cpl_boolean PERMUTE_MOLECULE_ORDERING=CPL_TRUE;/* MNB This is here for testing purposes*/
 
     if (mf_io_use_stdlblrtm()) GEN_HYBRID=CPL_TRUE;
 
@@ -1627,6 +1630,11 @@ cpl_bivector* mf_io_mergeODTables(const int range, cpl_vector* mol_abuns, const 
         return NULL;
     }
 
+    /* Get mol index permutation vector */
+    /* MNB int idx1=oda_mol_paramidx2tableidxV[ODA_MAX_MOL_IDX-1]; */
+    /*MNB cpl_msg_info(cpl_func,"idx1=%d",idx1);*/
+
+
     /* Allocate the vector componenets of the return bivector*/
     int nrows=cpl_matrix_get_nrow(oda_table);
     cpl_vector* wavnum=cpl_vector_new(nrows);
@@ -1640,7 +1648,12 @@ cpl_bivector* mf_io_mergeODTables(const int range, cpl_vector* mol_abuns, const 
         mv[i]=0.0;
         for (int j=0; j<nmols;j++) {
             double scale=v[j];
-            mv[i]=mv[i]+scale*cpl_matrix_get(oda_table,i,j+1);
+            if (PERMUTE_MOLECULE_ORDERING) {
+                int mol_idx=oda_mol_paramidx2tableidxV[j];
+                mv[i]=mv[i]+scale*cpl_matrix_get(oda_table,i,mol_idx+1);
+            } else {
+                mv[i]=mv[i]+scale*cpl_matrix_get(oda_table,i,j+1);
+            }
         }
         /* Trnsmission is the exponential of the -ve of the combination of the OD's*/
         mv[i]=exp(-mv[i]);
@@ -1933,6 +1946,40 @@ void mf_io_oda_symlink(char* target, char* destination) {
     mf_io_symlink(target,destination);
 
 }/* end mf_io_oda_symlink*/
+// -------------------------------------------------------------------
+
+cpl_vector* mf_oda_mol_idx(char** mol, int nmol) {
+
+    /* Initialise the parameter list to table list permutation as th eidentity*/
+    for (int i=0; i<ODA_MAX_MOL_IDX; i++) oda_mol_paramidx2tableidxV[i]=i;
+
+    cpl_vector* idx_v=cpl_vector_new(nmol);
+    cpl_msg_info(cpl_func,"MOELCUL STRING==========");
+    for (int i=0;i<nmol;i++) {
+        cpl_msg_info(cpl_func,"STRING=%s",mol[i]);
+    }
+
+
+    cpl_array *allMoleculeNames=mf_molecules_create_array();
+    cpl_size n_all_mols=cpl_array_get_size(allMoleculeNames);
+    int match_cnt=0;
+    for (cpl_size i=0;i<n_all_mols;i++) {
+        const char* name=cpl_array_get_string(allMoleculeNames,i);
+        cpl_msg_info(cpl_func,"STRING=%s -> %lld",name,i);
+        for (int j=0;j<nmol;j++) {
+            if (strcmp(name,mol[j])==0) {
+                cpl_vector_set(idx_v,match_cnt,j);
+                oda_mol_paramidx2tableidxV[match_cnt]=j;
+                match_cnt++;
+                cpl_msg_info(cpl_func,"Match %s with %s: Map %s to %d", name,mol[j],name,j);
+            }
+        }
+    }
+
+    cpl_array_delete(allMoleculeNames);
+
+    return idx_v;
+} /*  mf_oda_mol_idx*/
 // -------------------------------------------------------------------
 
 // ------------------------
