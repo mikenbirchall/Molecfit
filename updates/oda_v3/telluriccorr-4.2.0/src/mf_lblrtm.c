@@ -458,6 +458,9 @@ static cpl_error_code mf_lblrtm_molecular_correct_atm(
      * - Invalid object structure
      */
 
+    /* Initialise the return error code */
+    cpl_error_code err = CPL_ERROR_NONE;
+
     /* Get number of columns with molecular profiles */
     cpl_size nmolcol = cpl_table_get_ncol(atm_profile) - 3;
 
@@ -472,20 +475,11 @@ static cpl_error_code mf_lblrtm_molecular_correct_atm(
     /* Get pointer to names of molecules in driver parameter structure */
     char **mol = cpl_table_get_data_string(params->molectab, MF_COL_LIST_MOLECULES);
 
-    cpl_msg_info(cpl_func,"MOELCUL STRING==========");
-    cpl_msg_info(cpl_func,"STRING=%s",mol[0]);
-    cpl_msg_info(cpl_func,"STRING=%s",mol[1]);
-    cpl_vector *mol_idxv=mf_oda_mol_idx(mol,nmolec);
-    if (mol_idxv) {
-        cpl_msg_info(cpl_func,"moll_idxv is ok");
-        cpl_vector_delete(mol_idxv);
-    }
 
     /* Get pointer to CPL array with fit parameters */
     const double *par = cpl_array_get_data_double_const(fitpar);
 
     /* Modify column densities of molecules */
-    cpl_error_code err = CPL_ERROR_NONE;
     for (cpl_size i = 0; i < nmolec; i++) {
         cpl_boolean ext = CPL_FALSE;
         for (cpl_size j = 0; j < nmolcol; j++) {
@@ -1237,6 +1231,14 @@ cpl_error_code mf_io_lblrtm_oda(mf_io_lnfl_config  *lnfl_config,
     if (lnfl_config==NULL)   cpl_msg_info(cpl_func,"lnfl_config is NULL");
     if (lblrtm_config==NULL) cpl_msg_info(cpl_func,"lblrtm_config is NULL");
     if (params==NULL)        cpl_msg_info(cpl_func,"params is NULL");
+
+    /* Initialise the molecule order permutation for the oda tables       */
+    /* Note: this is needed because the oda table works with molecules in */
+    /* the LBLRTM order, but the parameters listed in the recipie may be  */
+    /* in a different order                                               */
+    char **mol = cpl_table_get_data_string(params->molectab, MF_COL_LIST_MOLECULES);
+    err=mf_oda_mol_idx(mol,params->config->internal.molecules.n_molec);
+
 
     /* Molecule string */
     /* We need to parse the molecule string to determine which molecules we

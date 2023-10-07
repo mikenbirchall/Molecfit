@@ -1948,7 +1948,7 @@ void mf_io_oda_symlink(char* target, char* destination) {
 }/* end mf_io_oda_symlink*/
 // -------------------------------------------------------------------
 
-cpl_vector* mf_oda_mol_idx(char** mol, int nmol) {
+cpl_error_code mf_oda_mol_idx(char** mol, int nmol) {
 
     /* Initialise the parameter list to table list permutation as th eidentity*/
     for (int i=0; i<ODA_MAX_MOL_IDX; i++) oda_mol_paramidx2tableidxV[i]=i;
@@ -1978,7 +1978,7 @@ cpl_vector* mf_oda_mol_idx(char** mol, int nmol) {
 
     cpl_array_delete(allMoleculeNames);
 
-    return idx_v;
+    return CPL_ERROR_NONE;
 } /*  mf_oda_mol_idx*/
 // -------------------------------------------------------------------
 

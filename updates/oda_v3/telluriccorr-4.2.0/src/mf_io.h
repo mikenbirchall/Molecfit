@@ -258,7 +258,7 @@ cpl_array*    mf_io_molecstring2Names(char* molec_str);
 cpl_boolean   mf_io_use_odatable(void);
 cpl_boolean   mf_io_use_stdlblrtm(void);
 cpl_boolean   mf_io_use_debug(void);
-cpl_vector*   mf_oda_mol_idx(char** mol, int nmol);
+cpl_error_code  mf_oda_mol_idx(char** mol, int nmol);
 void          mf_io_oda_symlink(char* target, char* destination);
 CPL_END_DECLS
 
