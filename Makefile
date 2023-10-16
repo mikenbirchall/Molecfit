@@ -17,6 +17,7 @@ PWD=$(shell pwd)
 IDR=$(PWD)/install
 LIB_DIR=$(IDR)/lib
 BIN_DIR=$(IDR)/bin
+CPLDR=$(IDR)
 
 cfitsio_dir     =$(TOP_DIR)/cfitsio-3.49
 wcslib_dir      =$(TOP_DIR)/wcslib-7.6
@@ -32,6 +33,8 @@ UPDATES_DIR=updates/$(UPDATES)
 
 what:
 	@echo "    all          ---> Builds Molecfit based on standard kit and updated with default ODA version"
+	@echo "    noesorex     ---> As make all, but doesnt build esorex. Must specify CPLDR eg make esorex CPLDR=[path ro cpl]"
+	@echo "    esorex       ---> Just builds esorex from standard kit"
 	@echo "    base         ---> Builds base Molecfit from standard kit (no upddates added)"
 	@echo "    updates      ---> Updates standard kit source code from specifc update, eg, make updates UPDATES=continuum_parameters"
 	@echo "    rebuild      ---> Rebuilds, eg after updated changes"
@@ -67,6 +70,30 @@ allwgsl: base
 	make rebuildwgsl
 
 alloda: base oda
+
+esorexonly: decompress cfitsio fftw wcslib cpl esorex
+
+# If not building esorex but pointing to another installation with CPLDR i.e.
+#         make noesorex CPLDR=[path to CPL installation]
+# This recipe checks the validity of CPLDR
+chk_cpldr:
+	@echo Checking specified CPL directory...
+	@if [   -d $(CPLDR) ];  then echo Specified CPL Directory Found ; fi
+	@if [ ! -d $(CPLDR) ];  then echo Specified CPL Directory $(CPLDR) not found. Aborting! && exit 1 ; fi
+	@echo Checking that CPL directory is different from the installation directory...
+ifeq ($(IDR) , $(CPLDR))
+	@echo CPL Directory specified is the same as the installation directory, Error assumed.
+	@echo Will abort
+	@exit 1
+else
+	@echo Directories are different will continue
+endif
+	@echo Check that specified CPL directory contains the cpl core lib...
+	@if [ -e $(CPLDR)/lib/libcplcore.la ]; then echo cplcore found ; else echo cplcore not found. Aborting && exit 1 ; fi
+
+# Quick route to build oda from scratch without building esorex but specifying a
+# location for a prebuilt CPL directory (CPLDR)
+noesorex: chk_cpldr decompress third_party telluriccorr molecfit oda
 
 oda:
 	make updates UPDATES=oda_v3
@@ -136,11 +163,11 @@ third_party_dbl:
 
 
 telluriccorr:
-	cd $(telluriccorr_dir); ./configure --prefix=$(IDR) --with-cpl=$(IDR)
+	cd $(telluriccorr_dir); ./configure --prefix=$(IDR) --with-cpl=$(CPLDR)
 	cd $(telluriccorr_dir); make all install
 
 molecfit:
-	cd $(molecfit_dir); ./configure --prefix=$(IDR) --with-cpl=$(IDR)\
+	cd $(molecfit_dir); ./configure --prefix=$(IDR) --with-cpl=$(CPLDR)\
 							--with-telluriccorr=$(IDR)
 	cd $(molecfit_dir); make all install
 
