@@ -163,12 +163,12 @@ third_party_dbl:
 
 
 telluriccorr:
-	cd $(telluriccorr_dir); ./configure --prefix=$(IDR) --with-cpl=$(CPLDR)
+	export LD_LIBRARY_PATH=${CPLDR}/lib; cd $(telluriccorr_dir); ./configure --prefix=$(IDR) --with-cpl=$(CPLDR)
 	cd $(telluriccorr_dir); make all install
 
 molecfit:
-	cd $(molecfit_dir); ./configure --prefix=$(IDR) --with-cpl=$(CPLDR)\
-							--with-telluriccorr=$(IDR)
+	export LD_LIBRARY_PATH=${CPLDR}/lib; cd $(molecfit_dir); ./configure --prefix=$(IDR) --with-cpl=$(CPLDR) \
+							                  --with-telluriccorr=$(IDR)
 	cd $(molecfit_dir); make all install
 
 
