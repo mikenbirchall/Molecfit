@@ -28,12 +28,20 @@ thirdparty_dir  =$(TOP_DIR)/molecfit_third_party-1.9.2
 telluriccorr_dir=$(TOP_DIR)/telluriccorr-4.2.0
 molecfit_dir    =$(TOP_DIR)/molecfit-4.2.3
 
+
+# The following is apart of imprinting to the built recipe that this is an ODA variant
+# with specifc version into a description string in a specific file
+molecfit_model_file=$(molecfit_dir)/recipes/molecfit_model.c
+ODA_VERSION=1.00b
+DESC_STRING_OLD=Extract 1D
+DESC_STRING_NEW=ODA-Molecfit-v$(ODA_VERSION) Extract 1D
+
 UPDATES=continuum_parameters
 UPDATES_DIR=updates/$(UPDATES)
 
 what:
 	@echo "    all          ---> Builds Molecfit based on standard kit and updated with default ODA version"
-	@echo "    noesorex     ---> As make all, but doesnt build esorex. Must specify CPLDR eg make esorex CPLDR=[path ro cpl]"
+	@echo "    noesorex     ---> As make all, but doesnt build esorex. Must specify CPLDR eg make esorex CPLDR=[path to cpl]"
 	@echo "    esorex       ---> Just builds esorex from standard kit"
 	@echo "    base         ---> Builds base Molecfit from standard kit (no upddates added)"
 	@echo "    updates      ---> Updates standard kit source code from specifc update, eg, make updates UPDATES=continuum_parameters"
@@ -95,6 +103,28 @@ endif
 # location for a prebuilt CPL directory (CPLDR)
 noesorex: chk_cpldr decompress third_party telluriccorr molecfit oda
 
+test_env:
+	mkdir $@
+	cp Makefile $@
+	if [ -f $(tarball) ]; then cp $(tarball) $@; fi
+	cp -rdf updates $@/updates
+	cp -rdf python_scripts $@/python_scripts
+	cd $@; make -f Makefile vanilla
+	cd $@; make -f Makefile noesorex CPLDR=`pwd`/vanilla/install
+
+clean_test_env:
+	rm -rdf test_env
+
+# Excuse the name. I had to come up with something quickly.
+vanilla:
+	mkdir $@
+	cp Makefile $@
+	if [ -f $(tarball) ]; then cp $(tarball) $@; fi
+	cd $@; make -f Makefile base
+
+clean_vanilla:
+	rm -rdf vanilla
+
 oda:
 	make updates UPDATES=oda_v3
 	make rebuild
@@ -102,7 +132,7 @@ oda:
 
 tarball:
 	# If no tarball then make (fetch) one
-	if [ ! -e $(tarball) ] ; then make $(tarball); fi
+	if [ ! -f $(tarball) ] ; then make $(tarball); fi
 
 
 $(tarball):
@@ -163,12 +193,12 @@ third_party_dbl:
 
 
 telluriccorr:
-	export LD_LIBRARY_PATH=${CPLDR}/lib; cd $(telluriccorr_dir); ./configure --prefix=$(IDR) --with-cpl=$(CPLDR)
+	cd $(telluriccorr_dir); ./configure --prefix=$(IDR) --with-cpl=$(CPLDR)
 	cd $(telluriccorr_dir); make all install
 
 molecfit:
-	export LD_LIBRARY_PATH=${CPLDR}/lib; cd $(molecfit_dir); ./configure --prefix=$(IDR) --with-cpl=$(CPLDR) \
-							                  --with-telluriccorr=$(IDR)
+	cd $(molecfit_dir); ./configure --prefix=$(IDR) --with-cpl=$(CPLDR)\
+							--with-telluriccorr=$(IDR)
 	cd $(molecfit_dir); make all install
 
 
@@ -224,6 +254,13 @@ cleanall: distclean cleankit
 updates:
 	@echo Updating $(TOP_DIR) kit from: updates/$(UPDATES)
 	@make update4target UPDATE_TARGET=$(telluriccorr_dir)/src
+	@make change_molecfit_model_recipe_description
+
+change_molecfit_model_recipe_description:
+	# Change a fundamental description of the molecfit model recipe file
+	# to highlight that this is the ODA version
+	sed -i 's/$(DESC_STRING_OLD)/$(DESC_STRING_NEW)/' $(molecfit_model_file)
+
 
 update4target:
 # This recipe does the bulk of the file copy routine
@@ -235,6 +272,7 @@ update4target:
 
 rebuild:
 	cd $(telluriccorr_dir); make all install
+	cd $(molecfit_dir)    ; make all install
 
 rebuildwgsl:
 	# First Copy the wgsl mods
