@@ -1,6 +1,14 @@
 GIT_URL=https://jugit.fz-juelich.de/mlz/libcerf.git
 PKG_NAME=libcerf
 
+what:
+	@echo "all		-> Download libcerf package"
+	@echo "libcerf		-> Download libcerf package"
+	@echo "build_libcerf	-> Build downloaded libcerf package"
+	@echo "clean_libcerf	-> Remove libcerf build"
+
+help: what
+
 all: $(PKG_NAME)
 
 
