@@ -34,6 +34,7 @@
 #include "mf_lblrtm.h"
 
 #include "mf_model.h"
+#include "cerf.h"
 
 /*----------------------------------------------------------------------------*/
 /**
@@ -172,6 +173,21 @@ mf_model_results * mf_model(
     const cpl_table          *atm_profile_standard,
     const cpl_table          *atm_profile_combined)
 {
+
+    cpl_msg_info(cpl_func,"=============================================================");
+    cpl_msg_info(cpl_func,"Testing Voigt Function Values");
+    cpl_msg_info(cpl_func,"voigt value = %f , Expected: %f",voigt(0,    1,      0   ), 1 / sqrt(6.283185307179586));
+    cpl_msg_info(cpl_func,"voigt value = %f , Expected: %f",voigt(0,    0,      1   ), 1 / 3.141592653589793);
+    cpl_msg_info(cpl_func,"voigt value = %f , Expected: %f",voigt(0,    .5,    .5   ), .41741856104074);
+    cpl_msg_info(cpl_func,"voigt value = %f , Expected: %f",voigt(1,    .5,    .5   ), .18143039885260323);
+    cpl_msg_info(cpl_func,"voigt value = %f , Expected: %f",voigt(1e5,  .5e5,  .5e5 ), .18143039885260323e-5);
+    cpl_msg_info(cpl_func,"voigt value = %f , Expected: %f",voigt(1e-5, .5e-5, .5e-5), .18143039885260323e5);
+    cpl_msg_info(cpl_func,"voigt value = %f , Expected: %f",voigt(1,    .2,    5    ), 0.06113399719916219);
+    cpl_msg_info(cpl_func,"voigt value = %f , Expected: %f",voigt(1,    5,     .2   ), 0.07582140674553575);
+    cpl_msg_info(cpl_func,"Finished Testing Voigt Function Values");
+    cpl_msg_info(cpl_func,"=============================================================");
+
+
     /* Check mandatory inputs in the external call */
     cpl_error_ensure(config,
                      CPL_ERROR_NULL_INPUT, return NULL,

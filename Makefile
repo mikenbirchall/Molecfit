@@ -267,12 +267,25 @@ update4target:
 # for updating the kit files and relies on the same subdirectory
 # structure being used in the target and source directores.
 	@echo Updating source files in directory: $(UPDATE_TARGET)
-	@cp ${subst $(TOP_DIR),$(UPDATES_DIR),$(UPDATE_TARGET)/*.c} $(UPDATE_TARGET)
-	@cp ${subst $(TOP_DIR),$(UPDATES_DIR),$(UPDATE_TARGET)/*.h} $(UPDATE_TARGET)
+	@cp ${subst $(TOP_DIR),$(UPDATES_DIR),$(UPDATE_TARGET)/*.c}  $(UPDATE_TARGET)
+	@cp ${subst $(TOP_DIR),$(UPDATES_DIR),$(UPDATE_TARGET)/*.h}  $(UPDATE_TARGET)
+	@cp ${subst $(TOP_DIR),$(UPDATES_DIR),$(UPDATE_TARGET)/*.am} $(UPDATE_TARGET)
+#	cp ./$(UPDATES_DIR)/Makefile.am $(telluriccorr_dir)
+
 
 rebuild:
-	cd $(telluriccorr_dir); make all install
-	cd $(molecfit_dir)    ; make all install
+	# We have to rebuild the configure script to incorporate the new Makefile.am
+	#cd $(telluriccorr_dir); make clean
+	cd $(telluriccorr_dir); aclocal -I m4macros
+	cd $(telluriccorr_dir); autoconf
+	cd $(telluriccorr_dir); automake
+	cd $(telluriccorr_dir); make clean
+
+	# Now create from scratch with new configure file
+	make telluriccorr
+
+	# Rebuild molecfit
+	cd $(molecfit_dir)    ; make clean all install
 
 rebuildwgsl:
 	# First Copy the wgsl mods
